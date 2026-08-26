@@ -256,6 +256,8 @@
   .org-map-controls button:last-child{border-bottom:none;}
   .org-map-controls button:hover{background:var(--panel-2);color:var(--amber);}
   .org-map-label{position:absolute;bottom:12px;left:12px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase;background:rgba(11,15,20,0.7);padding:4px 8px;border-radius:2px;z-index:5;}
+  .org-map-import-btn{position:absolute;top:12px;right:12px;z-index:5;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);color:var(--text-dim);padding:8px 12px;border-radius:var(--radius);font-family:var(--font-body);font-size:12.5px;font-weight:500;cursor:pointer;}
+  .org-map-import-btn:hover{border-color:var(--amber);color:var(--amber);}
   .org-map-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;background:var(--panel);border:1px solid var(--amber);color:var(--amber);padding:8px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11.5px;display:flex;align-items:center;gap:12px;white-space:nowrap;}
   .org-map-banner button{background:none;border:1px solid var(--amber);color:var(--amber);border-radius:2px;padding:3px 8px;font-family:var(--font-mono);font-size:10.5px;cursor:pointer;}
   .org-map-banner button:hover{background:var(--amber);color:#1A1000;}
@@ -474,7 +476,7 @@
 
 <script>
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null };
 let SESSION = null;
 const RANK_ORDER = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
@@ -504,7 +506,7 @@ const K = {
   warrants:'db:warrants', officers:'db:officers', bolos:'db:bolos', penalCode:'db:penalCode',
   detectiveReports:'db:detectiveReports', logs:'db:logs', events:'db:events', dispatch:'db:dispatch',
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
-  organizations:'db:organizations',
+  organizations:'db:organizations', orgMapImage:'db:orgMapImage',
   session:'session:current'
 };
 
@@ -526,6 +528,11 @@ async function loadAll(){
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
     }catch(e){ DB[key] = []; }
   }
+  // orgMapImage n'est pas une liste mais un objet unique {url, width, height} — géré à part
+  try{
+    const res = await window.storage.get(K.orgMapImage, true);
+    DB.orgMapImage = res && res.value ? JSON.parse(res.value) : null;
+  }catch(e){ DB.orgMapImage = null; }
   // migration : ancien libellé de catégorie renommé
   let migrated = false;
   DB.penalCode.forEach(p => {
@@ -1580,11 +1587,6 @@ let orgMapZoom = 1;
 let zoneDrawing = null; // { orgId, points:[{x,y}, ...] } pendant le placement des 4 points
 
 const ORG_MAP_BASE = `
-  <defs>
-    <pattern id="orgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(240,168,58,0.045)" stroke-width="1"/>
-    </pattern>
-  </defs>
   <rect x="0" y="0" width="600" height="760" fill="url(#orgGrid)"/>
   <path d="M300,40 C380,58 432,118 418,178 C462,158 502,202 480,260
            C522,280 542,340 500,380 C542,420 520,482 468,500
@@ -1608,6 +1610,18 @@ const ORG_MAP_BASE = `
   </g>`;
 
 function buildOrgMapSVG(){
+  // carte de fond : image importée par URL si définie, sinon la carte schématique par défaut
+  const hasCustomMap = DB.orgMapImage && DB.orgMapImage.url;
+  const mapW = hasCustomMap ? DB.orgMapImage.width : 600;
+  const mapH = hasCustomMap ? DB.orgMapImage.height : 760;
+  const displayW = 620;
+  const displayH = Math.round(displayW * (mapH / mapW));
+
+  const backgroundSvg = hasCustomMap
+    ? `<image href="${escapeHtml(DB.orgMapImage.url)}" x="0" y="0" width="${mapW}" height="${mapH}" preserveAspectRatio="xMidYMid slice"/>
+       <rect x="0" y="0" width="${mapW}" height="${mapH}" fill="url(#orgGrid)"/>`
+    : ORG_MAP_BASE;
+
   // territoires déjà définis (polygones à 4 points, dans la couleur de l'organisation)
   const zonesSvg = DB.organizations
     .filter(o => Array.isArray(o.zone) && o.zone.length === 4)
@@ -1627,9 +1641,14 @@ function buildOrgMapSVG(){
       <text x="${p.x+10}" y="${p.y-8}" font-size="14" fill="#F0A83A" font-family="monospace">${i+1}</text>`).join('');
   }
 
-  return `<svg viewBox="0 0 600 760" width="620" height="785" xmlns="http://www.w3.org/2000/svg"
+  return `<svg viewBox="0 0 ${mapW} ${mapH}" width="${displayW}" height="${displayH}" xmlns="http://www.w3.org/2000/svg"
       onclick="handleOrgMapClick(event)" style="cursor:${zoneDrawing?'crosshair':'default'};">
-    ${ORG_MAP_BASE}
+    <defs>
+      <pattern id="orgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+        <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(240,168,58,0.045)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    ${backgroundSvg}
     ${zonesSvg}
     ${progressSvg}
   </svg>`;
@@ -1681,18 +1700,61 @@ function renderOrganizations(){
           <button onclick="changeOrgMapZoom(0.2)">+</button>
           <button onclick="changeOrgMapZoom(-0.2)">−</button>
         </div>
+        ${DB.orgMapImage
+          ? `<button class="org-map-import-btn" onclick="removeOrgMapImage()">✕ Retirer la carte importée</button>`
+          : `<button class="org-map-import-btn" onclick="openImportMapModal()">📥 Importer une carte (URL)</button>`}
         ${zoneDrawing ? `
         <div class="org-map-banner">
           Clique sur la carte pour placer le point ${zoneDrawing.points.length+1}/4
           <button onclick="cancelZoneDrawing()">Annuler</button>
         </div>` : ''}
-        <div class="org-map-label">Comté de San Andreas — Carte schématique</div>
+        <div class="org-map-label">${DB.orgMapImage ? 'Carte importée' : 'Comté de San Andreas — Carte schématique'}</div>
       </div>
     </div>
   `;
 }
 function changeOrgMapZoom(delta){
   orgMapZoom = Math.min(2.4, Math.max(0.6, +(orgMapZoom + delta).toFixed(2)));
+  render();
+}
+function openImportMapModal(){
+  showModal({
+    title: 'Importer une carte (URL)',
+    fields: [
+      { key:'url', label:"URL de l'image", placeholder:'https://...' },
+    ],
+    submitLabel: 'Charger',
+    onSubmit: async (data) => {
+      if(!data.url){ await infoDialog('Une URL est requise.'); return; }
+      const hasZones = DB.organizations.some(o => Array.isArray(o.zone) && o.zone.length === 4);
+      if(hasZones){
+        const ok = await confirmDialog("Des zones sont déjà tracées sur la carte actuelle. Elles resteront enregistrées mais ne correspondront probablement plus à la nouvelle carte — il faudra les redéfinir. Continuer ?");
+        if(!ok) return;
+      }
+      // charge l'image pour connaître ses dimensions réelles avant de l'enregistrer
+      const img = new Image();
+      const loaded = await new Promise((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = data.url;
+      });
+      if(!loaded || !img.naturalWidth){
+        await infoDialog("Impossible de charger cette image. Vérifie que l'URL pointe bien vers un fichier image accessible publiquement.");
+        return;
+      }
+      DB.orgMapImage = { url: data.url, width: img.naturalWidth, height: img.naturalHeight };
+      await saveKey('orgMapImage');
+      await logAction('Carte importée', data.url);
+      render();
+    }
+  });
+}
+async function removeOrgMapImage(){
+  const ok = await confirmDialog('Retirer la carte importée et revenir à la carte schématique par défaut ?');
+  if(!ok) return;
+  DB.orgMapImage = null;
+  await saveKey('orgMapImage');
+  await logAction('Carte importée retirée', '');
   render();
 }
 function startZoneDrawing(orgId){

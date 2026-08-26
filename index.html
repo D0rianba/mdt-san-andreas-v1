@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MDT — San Andreas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0F14;
+    --panel:#131922;
+    --panel-2:#1A222D;
+    --panel-3:#212B38;
+    --border:#2A3441;
+    --border-soft:#1F2833;
+    --text:#E7EBF0;
+    --text-dim:#8A96A6;
+    --text-faint:#5A6472;
+    --amber:#F0A83A;
+    --amber-dim:#7A5A24;
+    --blue:#4C8DFF;
+    --red:#E5484D;
+    --red-dim:#4A1E20;
+    --green:#34D399;
+    --green-dim:#173F32;
+    --radius:3px;
+    --font-display:'Barlow Condensed',sans-serif;
+    --font-body:'IBM Plex Sans',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+  body{overflow:hidden;}
+  #app{height:100vh;display:flex;flex-direction:column;}
+
+  /* ===== Scanline / grain overlay for terminal feel ===== */
+  .scan-overlay{
+    pointer-events:none;position:fixed;inset:0;z-index:9999;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode:overlay;opacity:0.5;
+  }
+
+  /* ===== LOGIN ===== */
+  #login-screen{
+    height:100%;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(76,141,255,0.06), transparent 60%),
+      var(--bg);
+  }
+  .login-box{
+    width:380px;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:0;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .login-head{
+    padding:22px 26px 18px;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--panel-3), var(--panel));
+  }
+  .badge-star{
+    width:44px;height:44px;border:2px solid var(--amber);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;margin-bottom:10px;
+    color:var(--amber);font-family:var(--font-display);font-weight:700;font-size:18px;
+  }
+  .login-head h1{
+    font-family:var(--font-display);font-weight:700;font-size:26px;letter-spacing:0.5px;
+    margin:0;color:var(--text);text-transform:uppercase;
+  }
+  .login-head p{margin:4px 0 0;font-size:12px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:0.5px;}
+  .login-body{padding:22px 26px 26px;}
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;
+    color:var(--text-faint);text-transform:uppercase;margin-bottom:6px;
+  }
+  .field input, .field select, .field textarea{
+    width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+    padding:9px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13.5px;
+    outline:none;transition:border-color .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--blue);}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .btn{
+    font-family:var(--font-display);font-weight:600;letter-spacing:0.5px;text-transform:uppercase;
+    font-size:14px;padding:10px 16px;border-radius:var(--radius);border:1px solid var(--border);
+    background:var(--panel-3);color:var(--text);cursor:pointer;transition:all .12s;
+  }
+  .btn:hover{border-color:var(--text-dim);background:#252F3C;}
+  .btn-primary{background:var(--amber);color:#1A1000;border-color:var(--amber);}
+  .btn-primary:hover{background:#FFB94D;border-color:#FFB94D;}
+  .btn-red{background:var(--red-dim);color:#FFB4B7;border-color:#6B2A2D;}
+  .btn-red:hover{background:#6B2A2D;}
+  .btn-full{width:100%;}
+  .btn-sm{padding:6px 10px;font-size:11px;}
+  .login-foot{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:14px;text-align:center;letter-spacing:0.3px;}
+
+  /* ===== TOPBAR ===== */
+  #topbar{
+    height:44px;flex:none;display:flex;align-items:center;
+    background:var(--panel);border-bottom:1px solid var(--border);padding:0 14px;
+    gap:16px;
+  }
+  .tb-brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:16px;letter-spacing:0.5px;color:var(--amber);text-transform:uppercase;}
+  .tb-star{width:22px;height:22px;border:1.5px solid var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;}
+  .tb-sep{width:1px;height:20px;background:var(--border);}
+  .tb-unit{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+  .tb-unit b{color:var(--text);}
+  .tb-spacer{flex:1;}
+  .tb-clock{font-family:var(--font-mono);font-size:13px;color:var(--text-dim);letter-spacing:0.5px;}
+  .tb-user{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+
+  /* ===== TICKER (signature element) ===== */
+  #ticker-bar{
+    height:26px;flex:none;background:#0E1319;border-bottom:1px solid var(--border-soft);
+    display:flex;align-items:center;overflow:hidden;position:relative;
+  }
+  .ticker-label{
+    flex:none;height:100%;display:flex;align-items:center;gap:6px;padding:0 12px;
+    background:var(--red-dim);border-right:1px solid #6B2A2D;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:#FFB4B7;font-weight:600;
+  }
+  .ticker-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink 1.4s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+  .ticker-track-wrap{flex:1;overflow:hidden;height:100%;display:flex;align-items:center;}
+  .ticker-track{display:flex;align-items:center;white-space:nowrap;animation-name:ticker-scroll;animation-timing-function:linear;animation-iteration-count:infinite;}
+  .ticker-track:hover{animation-play-state:paused;}
+  @keyframes ticker-scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+  .ticker-item{font-family:var(--font-mono);font-size:11.5px;color:var(--text-dim);padding:0 22px;}
+  .ticker-item b{color:var(--amber);font-weight:600;}
+  .ticker-add{flex:none;padding:0 10px;font-family:var(--font-mono);font-size:10px;color:var(--text-faint);cursor:pointer;border-left:1px solid var(--border-soft);height:100%;display:flex;align-items:center;letter-spacing:0.5px;}
+  .ticker-add:hover{color:var(--amber);}
+
+  /* ===== LAYOUT ===== */
+  #main-layout{flex:1;display:flex;min-height:0;}
+  #sidebar{
+    width:190px;flex:none;background:var(--panel);border-right:1px solid var(--border);
+    padding:14px 0;display:flex;flex-direction:column;
+  }
+  .nav-section-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:1.5px;color:var(--text-faint);padding:10px 18px 6px;text-transform:uppercase;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;
+    font-family:var(--font-body);font-size:13.5px;color:var(--text-dim);
+    border-left:2px solid transparent;transition:all .12s;
+  }
+  .nav-item:hover{color:var(--text);background:rgba(255,255,255,0.02);}
+  .nav-item.active{color:var(--amber);border-left-color:var(--amber);background:rgba(240,168,58,0.06);}
+  .nav-icon{width:16px;text-align:center;font-size:13px;opacity:0.85;}
+  .nav-count{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);}
+
+  #content{flex:1;overflow-y:auto;padding:22px 28px 40px;min-width:0;}
+  #content::-webkit-scrollbar{width:9px;}
+  #content::-webkit-scrollbar-thumb{background:var(--panel-3);border-radius:5px;}
+  #content::-webkit-scrollbar-track{background:transparent;}
+
+  .page-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+  .page-title{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:0.3px;text-transform:uppercase;color:var(--text);}
+  .page-sub{font-family:var(--font-mono);font-size:11.5px;color:var(--text-faint);margin-top:2px;letter-spacing:0.3px;}
+
+  /* ===== DASHBOARD STATS ===== */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+  .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--stat-color,var(--amber));}
+  .stat-num{font-family:var(--font-display);font-weight:700;font-size:32px;color:var(--text);line-height:1;}
+  .stat-label{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);letter-spacing:0.8px;text-transform:uppercase;margin-top:6px;}
+
+  .panel-block{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:18px;}
+  .panel-block-head{padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--font-display);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-dim);display:flex;justify-content:space-between;align-items:center;}
+  .panel-block-body{padding:4px 0;}
+  .activity-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+  .activity-row:last-child{border-bottom:none;}
+  .activity-time{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);width:75px;flex:none;}
+  .activity-text{color:var(--text-dim);}
+  .activity-text b{color:var(--text);font-weight:600;}
+  .tag{display:inline-block;font-family:var(--font-mono);font-size:10px;letter-spacing:0.5px;padding:2px 7px;border-radius:2px;text-transform:uppercase;font-weight:600;}
+  .tag-green{background:var(--green-dim);color:var(--green);}
+  .tag-red{background:var(--red-dim);color:#FF9EA2;}
+  .tag-amber{background:var(--amber-dim);color:var(--amber);}
+  .tag-blue{background:#132A4A;color:var(--blue);}
+  .tag-grey{background:var(--panel-3);color:var(--text-dim);}
+
+  /* ===== CALENDAR ===== */
+  .cal-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .cal-nav-btn{background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;}
+  .cal-nav-btn:hover{border-color:var(--text-dim);color:var(--text);}
+  .cal-month-label{font-family:var(--font-display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:0.4px;min-width:220px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .cal-weekday{background:var(--panel-2);padding:8px 0;text-align:center;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase;}
+  .cal-cell{background:var(--panel);min-height:88px;padding:6px;cursor:pointer;transition:background .12s;display:flex;flex-direction:column;gap:4px;}
+  .cal-cell:hover{background:var(--panel-2);}
+  .cal-cell.cal-empty{background:#0D1319;cursor:default;}
+  .cal-cell.cal-empty:hover{background:#0D1319;}
+  .cal-daynum{font-family:var(--font-mono);font-size:12px;color:var(--text-faint);}
+  .cal-cell.cal-today .cal-daynum{color:var(--amber);font-weight:700;background:var(--amber-dim);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+  .cal-event-pill{font-family:var(--font-body);font-size:10.5px;background:var(--amber-dim);color:var(--amber);padding:2px 6px;border-radius:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cal-event-more{font-family:var(--font-mono);font-size:9.5px;color:var(--text-faint);padding-left:2px;}
+  .event-list-item{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-soft);}
+  .event-list-item:last-child{border-bottom:none;}
+
+  /* ===== DISPATCH ===== */
+  .dispatch-card{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--dispatch-color,var(--border));border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+  .dispatch-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .dispatch-title{font-family:var(--font-display);font-weight:600;font-size:16px;color:var(--text);text-transform:uppercase;letter-spacing:0.3px;}
+  .dispatch-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+  .dispatch-desc{color:var(--text-dim);font-size:13px;line-height:1.5;margin:8px 0;}
+  .dispatch-units{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+  .dispatch-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);}
+
+  /* ===== DISPATCH BOARD (unités / agents en service) ===== */
+  .dispatch-board{display:grid;grid-template-columns:1.2fr 1fr 0.9fr;gap:16px;align-items:start;}
+  .dispatch-col{display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .dispatch-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);}
+  .dispatch-panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--font-display);font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text);}
+  .dispatch-panel-head .left{display:flex;align-items:center;gap:8px;}
+  .dispatch-panel-body{padding:12px 16px;max-height:520px;overflow-y:auto;}
+  .duty-tag{display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:8px;cursor:pointer;transition:border-color .12s;}
+  .duty-tag:hover{border-color:var(--amber);}
+  .duty-tag:last-child{margin-bottom:0;}
+  .duty-badge-num{font-family:var(--font-mono);font-size:11px;background:var(--panel-3);color:var(--text-dim);padding:2px 7px;border-radius:3px;flex:none;}
+  .duty-name{font-size:13px;color:var(--text);font-weight:500;}
+  .unit-card{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;}
+  .unit-card:last-child{margin-bottom:0;}
+  .unit-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
+  .unit-card-title{font-family:var(--font-mono);font-weight:600;color:var(--amber);font-size:13px;letter-spacing:0.3px;}
+  .unit-members{display:flex;flex-wrap:wrap;gap:6px;}
+  @media (max-width:1100px){
+    .dispatch-board{grid-template-columns:1fr;}
+  }
+
+  /* ===== ORGANISATIONS / GANGS ===== */
+  .org-board{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:stretch;height:calc(100vh - 190px);min-height:480px;}
+  .org-list-panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden;}
+  .org-list-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex:none;}
+  .org-list-count{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .org-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text-faint);}
+  .org-toggle input{accent-color:var(--amber);cursor:pointer;}
+  .org-search{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius);font-size:13px;outline:none;}
+  .org-search:focus{border-color:var(--blue);}
+  .org-list-body{flex:1;overflow-y:auto;padding:10px;}
+  .org-row{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;transition:border-color .12s;}
+  .org-row:hover{border-color:var(--amber);}
+  .org-row-name{font-size:13.5px;color:var(--text);font-weight:600;}
+  .org-row-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+  .org-row-swatch{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;flex:none;}
+  .org-row-actions{display:flex;gap:4px;flex:none;}
+  .org-pin-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;padding:4px;}
+  .org-pin-btn:hover{color:var(--amber);}
+  .org-list-foot{flex:none;border-top:1px solid var(--border);padding:12px;}
+  .org-add-btn{width:100%;background:var(--panel-3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius);cursor:pointer;font-family:var(--font-body);font-size:13.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .org-add-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .org-map-panel{position:relative;background:#0A1622;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .org-map-svg-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .org-map-controls{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;z-index:5;}
+  .org-map-controls button{width:32px;height:32px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:15px;font-family:var(--font-mono);}
+  .org-map-controls button:last-child{border-bottom:none;}
+  .org-map-controls button:hover{background:var(--panel-2);color:var(--amber);}
+  .org-map-label{position:absolute;bottom:12px;left:12px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase;background:rgba(11,15,20,0.7);padding:4px 8px;border-radius:2px;z-index:5;}
+  .org-map-banner{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:6;background:var(--panel);border:1px solid var(--amber);color:var(--amber);padding:8px 14px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11.5px;display:flex;align-items:center;gap:12px;white-space:nowrap;}
+  .org-map-banner button{background:none;border:1px solid var(--amber);color:var(--amber);border-radius:2px;padding:3px 8px;font-family:var(--font-mono);font-size:10.5px;cursor:pointer;}
+  .org-map-banner button:hover{background:var(--amber);color:#1A1000;}
+  .org-zone-shape{cursor:pointer;transition:fill-opacity .12s;}
+  .org-zone-shape:hover{fill-opacity:0.4;}
+  .zone-row-btn{background:none;border:1px solid var(--border);color:var(--text-faint);cursor:pointer;font-family:var(--font-mono);font-size:9.5px;padding:3px 6px;border-radius:2px;flex:none;}
+  .zone-row-btn:hover{border-color:var(--amber);color:var(--amber);}
+
+  /* ===== TOOLBAR / SEARCH ===== */
+  .toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;}
+  .search-input{flex:1;max-width:340px;}
+  .toolbar .field{margin-bottom:0;}
+
+  /* ===== TABLE ===== */
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  thead th{
+    text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;
+    color:var(--text-faint);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel-2);
+  }
+  tbody td{padding:11px 14px;font-size:13px;color:var(--text-dim);border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(255,255,255,0.015);}
+  .mono{font-family:var(--font-mono);color:var(--text);}
+  .row-name{color:var(--text);font-weight:500;}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;}
+  .icon-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius);padding:5px 9px;font-size:11px;cursor:pointer;font-family:var(--font-mono);}
+  .icon-btn:hover{border-color:var(--text-dim);color:var(--text);}
+  .icon-btn.danger:hover{border-color:var(--red);color:var(--red);}
+
+  .empty-state{padding:50px 20px;text-align:center;color:var(--text-faint);font-family:var(--font-mono);font-size:12.5px;}
+  .empty-state .em-icon{font-size:26px;margin-bottom:8px;opacity:0.5;}
+
+  /* ===== MODAL ===== */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(5,7,10,0.72);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal{width:520px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 30px 80px rgba(0,0,0,0.6);}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);}
+  .modal-head h3{margin:0;font-family:var(--font-display);font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:0.3px;}
+  .modal-close{cursor:pointer;color:var(--text-faint);font-size:18px;line-height:1;background:none;border:none;}
+  .modal-close:hover{color:var(--text);}
+  .modal-body{padding:20px;}
+  .modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+
+  .badge-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel-3);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 4px;font-size:11.5px;color:var(--text-dim);font-family:var(--font-mono);}
+  .chip-avatar{width:18px;height:18px;border-radius:50%;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
+
+  ::placeholder{color:var(--text-faint);}
+  .helper-text{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:4px;}
+
+  @media (max-width:900px){
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    #sidebar{width:150px;}
+  }
+</style>
+</head>
+<body>
+<div class="scan-overlay"></div>
+<div id="app">
+
+  <!-- ============ LOGIN ============ -->
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-head">
+        <div class="badge-star">SA</div>
+        <h1>MDT — San Andreas</h1>
+        <p>IDENTIFICATION TERMINAL · UNITÉ DE PATROUILLE</p>
+      </div>
+      <div class="login-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Matricule</label>
+            <input id="login-badge" type="text" placeholder="Ex. 1042" maxlength="10">
+          </div>
+          <div class="field">
+            <label>Grade</label>
+            <select id="login-rank">
+              <option>Rookie</option>
+              <option selected>Police Officer I</option>
+              <option>Police Officer II</option>
+              <option>Police Officer III</option>
+              <option>Senior Lead Officer</option>
+              <option>Sergeant I</option>
+              <option>Sergeant II</option>
+              <option>Lieutenant I</option>
+              <option>Lieutenant II</option>
+              <option>Captain</option>
+              <option>Commander</option>
+              <option>Deputy Chief</option>
+              <option>Assistant Chief</option>
+              <option>Chief of Police</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Nom complet</label>
+          <input id="login-name" type="text" placeholder="Ex. J. Rivera">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Se connecter au terminal</button>
+        <div class="login-foot" id="login-error"></div>
+        <div class="login-foot">TOUTE CONSULTATION EST JOURNALISÉE · SAPD/SASD/SAHP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ APP SHELL ============ -->
+  <div id="shell" style="display:none;height:100%;flex-direction:column;">
+    <div id="topbar">
+      <div class="tb-brand"><span class="tb-star">SA</span> MDT</div>
+      <div class="tb-sep"></div>
+      <div class="tb-unit">MATRICULE <b id="tb-callsign">—</b></div>
+      <div class="tb-spacer"></div>
+      <div class="tb-clock" id="tb-clock">--:--:--</div>
+      <div class="tb-sep"></div>
+      <div class="tb-user"><span class="status-dot"></span><span id="tb-user-name">—</span></div>
+      <button class="btn btn-sm" style="margin-left:10px;" onclick="doLogout()">Déconnexion</button>
+    </div>
+
+    <div id="ticker-bar">
+      <div class="ticker-label"><span class="ticker-dot"></span>BOLO / AVIS</div>
+      <div class="ticker-track-wrap">
+        <div class="ticker-track" id="ticker-track"></div>
+      </div>
+      <div class="ticker-add" id="bolo-add-btn" onclick="openBoloModal()">+ AJOUTER UN AVIS</div>
+      <div class="ticker-add" id="bolo-reset-btn" onclick="resetBolos()" title="Effacer tous les avis du bandeau">↺ RÉINITIALISER</div>
+    </div>
+
+    <div id="main-layout">
+      <div id="sidebar">
+        <div class="nav-section-label">Terminal</div>
+        <div class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')"><span class="nav-icon">▣</span> Accueil</div>
+        <div class="nav-item" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> Évènements <span class="nav-count" id="count-events">0</span></div>
+        <div class="nav-section-label">Patrouille</div>
+        <div class="nav-item" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> Dispatch <span class="nav-count" id="count-dispatch">0</span></div>
+        <div class="nav-item" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> Véhicules Service <span class="nav-count" id="count-serviceVehicles">0</span></div>
+        <div class="nav-section-label">Base de données</div>
+        <div class="nav-item" data-page="citizens" onclick="goPage('citizens')"><span class="nav-icon">☰</span> Citoyens <span class="nav-count" id="count-citizens">0</span></div>
+        <div class="nav-item" data-page="organizations" onclick="goPage('organizations')"><span class="nav-icon">⌘</span> Organisations / Gangs <span class="nav-count" id="count-organizations">0</span></div>
+        <div class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> Rapports <span class="nav-count" id="count-reports">0</span></div>
+        <div class="nav-item" data-page="warrants" onclick="goPage('warrants')"><span class="nav-icon">⚠</span> Mandats <span class="nav-count" id="count-warrants">0</span></div>
+        <div class="nav-item" data-page="penalcode" onclick="goPage('penalcode')"><span class="nav-icon">§</span> Code Pénal <span class="nav-count" id="count-penalcode">0</span></div>
+        <div class="nav-section-label">Service</div>
+        <div class="nav-item" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
+        <div class="nav-section-label" id="nav-section-detective">Detective</div>
+        <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> Rapports <span class="nav-count" id="count-detectiveReports">0</span></div>
+        <div class="nav-section-label" id="nav-section-logs">Logs</div>
+        <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">▥</span> Logs <span class="nav-count" id="count-logs">0</span></div>
+      </div>
+
+      <div id="content"><!-- injected --></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PONT DE STOCKAGE SUPABASE — remplace le stockage interne de
+     Claude pour permettre l'hébergement du site en dehors de
+     l'environnement Claude. Voir DEPLOIEMENT.md pour la marche à suivre.
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ⚠️ À REMPLACER avant la mise en ligne — voir DEPLOIEMENT.md
+  const SUPABASE_URL = 'https://sxouhunbdjzdxhwomicb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_v83qj5erdL05SNBQGlsqcw_Gi31Fy6Y';
+
+  const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Réimplémente exactement la même interface que window.storage utilisée
+  // dans le reste du site (get/set/delete/list), pour ne toucher à aucune
+  // autre ligne de l'application.
+  // - shared=true  → stocké dans la table Supabase "kv_store" (partagé entre tous)
+  // - shared=false → stocké dans le localStorage du navigateur (propre à l'appareil,
+  //                  utilisé uniquement pour la session de connexion)
+  window.storage = {
+    async get(key, shared){
+      if(!shared){
+        const v = localStorage.getItem(key);
+        return v !== null ? { key, value: v, shared } : null;
+      }
+      const { data, error } = await _sb.from('kv_store').select('value').eq('key', key).maybeSingle();
+      if(error) throw new Error(error.message);
+      return data ? { key, value: data.value, shared } : null;
+    },
+    async set(key, value, shared){
+      if(!shared){
+        localStorage.setItem(key, value);
+        return { key, value, shared };
+      }
+      const { error } = await _sb.from('kv_store').upsert(
+        { key, value, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+      if(error) throw new Error(error.message);
+      return { key, value, shared };
+    },
+    async delete(key, shared){
+      if(!shared){
+        localStorage.removeItem(key);
+        return { key, deleted:true, shared };
+      }
+      const { error } = await _sb.from('kv_store').delete().eq('key', key);
+      if(error) throw new Error(error.message);
+      return { key, deleted:true, shared };
+    },
+    async list(prefix, shared){
+      if(!shared){
+        const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+        return { keys, prefix, shared };
+      }
+      let query = _sb.from('kv_store').select('key');
+      if(prefix) query = query.like('key', prefix + '%');
+      const { data, error } = await query;
+      if(error) throw new Error(error.message);
+      return { keys: (data||[]).map(r => r.key), prefix, shared };
+    }
+  };
+</script>
+
+<script>
+/* ===================== STATE ===================== */
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[] };
+let SESSION = null;
+const RANK_ORDER = [
+  'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
+  'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
+  'Deputy Chief','Assistant Chief','Chief of Police'
+];
+function hasRankAtLeast(rank){
+  return SESSION && RANK_ORDER.indexOf(SESSION.rank) >= RANK_ORDER.indexOf(rank);
+}
+function currentOfficer(){
+  return SESSION ? DB.officers.find(o => o.badge === SESSION.badge) : null;
+}
+function hasDetectiveAccess(){
+  if(!SESSION) return false;
+  if(hasRankAtLeast('Captain')) return true;
+  const officer = currentOfficer();
+  return !!(officer && Array.isArray(officer.divisions) && officer.divisions.includes('Detective Division'));
+}
+const DIVISIONS = [
+  'Air Support Division','Detective Division','K-9 Division',
+  'Police Academy','Trafic Division','Special Weapons And Tactics'
+];
+let currentPage = 'dashboard';
+
+const K = {
+  citizens:'db:citizens', vehicles:'db:vehicles', reports:'db:reports',
+  warrants:'db:warrants', officers:'db:officers', bolos:'db:bolos', penalCode:'db:penalCode',
+  detectiveReports:'db:detectiveReports', logs:'db:logs', events:'db:events', dispatch:'db:dispatch',
+  patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
+  organizations:'db:organizations',
+  session:'session:current'
+};
+
+function uid(prefix){ return prefix + '-' + Math.random().toString(36).slice(2,9); }
+function nowISO(){ return new Date().toISOString(); }
+function fmtDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ===================== STORAGE ===================== */
+async function loadAll(){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations']){
+    try{
+      const res = await window.storage.get(K[key], true);
+      DB[key] = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){ DB[key] = []; }
+  }
+  // migration : ancien libellé de catégorie renommé
+  let migrated = false;
+  DB.penalCode.forEach(p => {
+    if(p.category === 'Infraction'){ p.category = 'Contraventionnelle'; migrated = true; }
+  });
+  if(migrated) await saveKey('penalCode');
+
+  // migration : division unique -> tableau de divisions
+  let officersMigrated = false;
+  DB.officers.forEach(o => {
+    if(o.division !== undefined){
+      o.divisions = o.division ? [o.division] : [];
+      delete o.division;
+      officersMigrated = true;
+    } else if(!Array.isArray(o.divisions)){
+      o.divisions = [];
+      officersMigrated = true;
+    }
+    if(o.dutyStatus === undefined){
+      o.dutyStatus = 'off';
+      o.unitId = null;
+      officersMigrated = true;
+    }
+  });
+  if(officersMigrated) await saveKey('officers');
+
+  // migration : les appels assignaient auparavant des agents individuels (callsigns), puis des IDs de patrouille bruts.
+  // Format final : [{id, name}] pour que le nom reste lisible même si la patrouille est dissoute plus tard.
+  let dispatchMigrated = false;
+  DB.dispatch.forEach(d => {
+    const raw = d.assignedUnits || [];
+    const isOldFormat = raw.length > 0 && typeof raw[0] === 'string';
+    if(isOldFormat){
+      d.assignedUnits = raw
+        .map(id => DB.patrolUnits.find(u => u.id === id))
+        .filter(Boolean)
+        .map(u => ({ id:u.id, name:u.name }));
+      dispatchMigrated = true;
+    } else if(!Array.isArray(raw)){
+      d.assignedUnits = [];
+      dispatchMigrated = true;
+    }
+  });
+  if(dispatchMigrated) await saveKey('dispatch');
+
+  // migration : statut par défaut pour les unités créées avant l'ajout de cette fonctionnalité
+  let unitsMigrated = false;
+  DB.patrolUnits.forEach(u => {
+    if(!u.status){ u.status = 'Patrouille'; unitsMigrated = true; }
+    if(u.vehicleId === undefined){ u.vehicleId = null; unitsMigrated = true; }
+  });
+  if(unitsMigrated) await saveKey('patrolUnits');
+}
+async function saveKey(key){
+  try{
+    await window.storage.set(K[key], JSON.stringify(DB[key]), true);
+    return true;
+  }catch(e){
+    console.error('Storage error', key, e);
+    return false;
+  }
+}
+async function logAction(action, details){
+  DB.logs.push({ id: uid('log'), action, details: details||'', author: SESSION ? SESSION.callsign : '—', date: nowISO() });
+  if(DB.logs.length > 500) DB.logs = DB.logs.slice(-500); // évite une croissance illimitée
+  await saveKey('logs'); // best-effort : un échec de journalisation ne doit jamais bloquer l'action principale
+}
+async function loadSession(){
+  try{
+    const res = await window.storage.get(K.session, false);
+    return res && res.value ? JSON.parse(res.value) : null;
+  }catch(e){ return null; }
+}
+async function saveSession(sess){
+  try{ await window.storage.set(K.session, JSON.stringify(sess), false); }catch(e){}
+}
+async function clearSession(){
+  try{ await window.storage.delete(K.session, false); }catch(e){}
+}
+
+/* ===================== AUTH ===================== */
+async function doLogin(){
+  const badge = document.getElementById('login-badge').value.trim();
+  const rank = document.getElementById('login-rank').value;
+  const name = document.getElementById('login-name').value.trim();
+  const err = document.getElementById('login-error');
+  if(!badge || !name){
+    err.textContent = 'Matricule et nom requis.';
+    return;
+  }
+  err.textContent = '';
+  SESSION = { badge, rank, name, callsign: rank.slice(0,1).toUpperCase()+'-'+badge };
+
+  // register/update officer in roster — les divisions et le statut de service sont préservés si déjà définis
+  const existingIdx = DB.officers.findIndex(o => o.badge === badge);
+  const existingDivisions = existingIdx >= 0 ? DB.officers[existingIdx].divisions : null;
+  const existingDutyStatus = existingIdx >= 0 ? DB.officers[existingIdx].dutyStatus : null;
+  const existingUnitId = existingIdx >= 0 ? DB.officers[existingIdx].unitId : null;
+  const officerRecord = {
+    badge, rank, name, lastSeen: nowISO(),
+    divisions: existingDivisions || [],
+    dutyStatus: existingDutyStatus || 'off',
+    unitId: existingUnitId || null
+  };
+  if(existingIdx >= 0) DB.officers[existingIdx] = officerRecord;
+  else DB.officers.push(officerRecord);
+  await saveKey('officers');
+  await saveSession(SESSION);
+  await logAction('Connexion', `${rank} ${name} (matricule ${badge})`);
+
+  enterApp();
+}
+
+async function doLogout(){
+  SESSION = null;
+  await clearSession();
+  document.getElementById('shell').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function enterApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('shell').style.display = 'flex';
+  document.getElementById('tb-callsign').textContent = SESSION.badge;
+  document.getElementById('tb-user-name').textContent = SESSION.rank + ' ' + SESSION.name;
+  const boloAllowed = hasRankAtLeast('Sergeant I');
+  document.getElementById('bolo-add-btn').style.display = boloAllowed ? 'flex' : 'none';
+  document.getElementById('bolo-reset-btn').style.display = boloAllowed ? 'flex' : 'none';
+  const detectiveAllowed = hasDetectiveAccess();
+  document.getElementById('nav-section-detective').style.display = detectiveAllowed ? 'block' : 'none';
+  document.getElementById('nav-item-detectiveReports').style.display = detectiveAllowed ? 'flex' : 'none';
+  const logsAllowed = isChief();
+  document.getElementById('nav-section-logs').style.display = logsAllowed ? 'block' : 'none';
+  document.getElementById('nav-item-logs').style.display = logsAllowed ? 'flex' : 'none';
+  updateCounts();
+  goPage('dashboard');
+}
+
+/* ===================== NAV ===================== */
+function goPage(page){
+  if(page === 'detectiveReports' && !hasDetectiveAccess()){
+    infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
+    page = 'dashboard';
+  }
+  if(page === 'logs' && !isChief()){
+    infoDialog("Accès réservé au grade Chief of Police.");
+    page = 'dashboard';
+  }
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  render();
+}
+
+function updateCounts(){
+  document.getElementById('count-citizens').textContent = DB.citizens.length;
+  document.getElementById('count-organizations').textContent = DB.organizations.length;
+  document.getElementById('count-reports').textContent = DB.reports.length;
+  document.getElementById('count-warrants').textContent = DB.warrants.length;
+  document.getElementById('count-roster').textContent = DB.officers.length;
+  document.getElementById('count-penalcode').textContent = DB.penalCode.length;
+  document.getElementById('count-detectiveReports').textContent = DB.detectiveReports.length;
+  document.getElementById('count-logs').textContent = DB.logs.length;
+  document.getElementById('count-events').textContent = DB.events.length;
+  document.getElementById('count-dispatch').textContent = DB.dispatch.filter(d => d.status !== 'Terminé').length;
+  document.getElementById('count-serviceVehicles').textContent = DB.serviceVehicles.filter(v => v.status === 'Disponible').length;
+}
+
+/* ===================== CLOCK ===================== */
+function tickClock(){
+  const el = document.getElementById('tb-clock');
+  if(el) el.textContent = new Date().toLocaleTimeString('fr-FR');
+}
+setInterval(tickClock, 1000);
+
+let tickerResizeTimeout = null;
+window.addEventListener('resize', () => {
+  clearTimeout(tickerResizeTimeout);
+  tickerResizeTimeout = setTimeout(renderTicker, 200);
+});
+
+/* ===================== TICKER ===================== */
+function renderTicker(){
+  const track = document.getElementById('ticker-track');
+  if(!track) return;
+  const wrap = track.parentElement;
+  const activeBolos = DB.bolos.slice(-12);
+  const baseItems = activeBolos.length
+    ? activeBolos.map(b => `<span class="ticker-item"><b>${escapeHtml(b.type)}</b> — ${escapeHtml(b.text)} <span style="color:var(--text-faint)">(${escapeHtml(b.author)})</span></span>`).join('')
+    : '<span class="ticker-item">AUCUN AVIS ACTIF — SERVICE CALME</span>';
+
+  const SPEED = 55; // pixels par seconde — vitesse de défilement constante, quel que soit le contenu
+
+  // mesure la largeur d'un seul jeu de contenu
+  track.style.animation = 'none';
+  track.innerHTML = baseItems;
+  const baseWidth = track.scrollWidth || 1;
+  const wrapWidth = wrap.clientWidth || 800;
+
+  // répète le contenu autant de fois qu'il faut pour qu'un seul "tour" dépasse largement la largeur visible,
+  // afin qu'aucun blanc n'apparaisse jamais entre deux boucles, même avec peu d'avis
+  // (plafonné pour éviter un contenu démesuré si la mesure de largeur échoue)
+  const repeats = Math.min(60, Math.max(1, Math.ceil((wrapWidth * 1.5) / baseWidth)));
+  const lapHtml = baseItems.repeat(repeats);
+  track.innerHTML = lapHtml + lapHtml; // deux tours identiques bout à bout = boucle parfaitement continue
+  const lapWidth = track.scrollWidth / 2;
+
+  track.style.animationName = 'ticker-scroll';
+  track.style.animationTimingFunction = 'linear';
+  track.style.animationIterationCount = 'infinite';
+  track.style.animationDuration = Math.max(4, lapWidth / SPEED) + 's';
+}
+
+function openBoloModal(){
+  if(!hasRankAtLeast('Sergeant I')){
+    infoDialog("Cette action est réservée au grade Sergeant I et au-dessus.");
+    return;
+  }
+  showModal({
+    title: 'Nouvel avis / BOLO',
+    fields: [
+      { key:'type', label:'Type', type:'select', options:['BOLO','ALERTE','INFO SERVICE','RECHERCHE'] },
+      { key:'text', label:'Message', type:'textarea', placeholder:'Ex. Véhicule gris suspecté de vol, dernière position Vinewood' }
+    ],
+    onSubmit: async (data) => {
+      DB.bolos.push({ id: uid('bolo'), type:data.type, text:data.text, author: SESSION.callsign, date: nowISO() });
+      await saveKey('bolos');
+      await logAction('Ajout BOLO', `${data.type} — ${data.text}`);
+      renderTicker();
+    }
+  });
+}
+
+async function resetBolos(){
+  if(!hasRankAtLeast('Sergeant I')){
+    await infoDialog("Cette action est réservée au grade Sergeant I et au-dessus.");
+    return;
+  }
+  if(DB.bolos.length === 0){
+    await infoDialog("Le bandeau est déjà vide, il n'y a rien à réinitialiser.");
+    return;
+  }
+  const ok = await confirmDialog('Effacer tous les avis du bandeau BOLO ? Cette action est irréversible.');
+  if(!ok) return;
+  DB.bolos = [];
+  await saveKey('bolos');
+  await logAction('Réinitialisation BOLO', 'Bandeau vidé');
+  renderTicker();
+}
+
+/* ===================== GENERIC MODAL ===================== */
+function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistrer'}){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+
+  const fieldsHtml = fields.map(f => {
+    const val = initial[f.key] !== undefined ? initial[f.key] : '';
+    if(f.type === 'multiselect'){
+      const selected = Array.isArray(val) ? val : [];
+      const normOpts = f.options.map(o => typeof o === 'object' ? o : {value:o, label:o});
+      const boxes = normOpts.map((o,i) => `
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;color:var(--text-dim);cursor:pointer;">
+          <input type="checkbox" id="mf-${f.key}-${i}" value="${escapeHtml(o.value)}" ${selected.includes(o.value)?'checked':''} style="width:15px;height:15px;accent-color:var(--amber);cursor:pointer;">
+          ${escapeHtml(o.label)}
+        </label>`).join('');
+      const helper = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      return `<div class="field" data-multiselect="${f.key}">${boxes}${helper}</div>`;
+    }
+    if(f.type === 'select'){
+      const normOpts = f.options.map(o => typeof o === 'object' ? o : {value:o, label:o});
+      const opts = normOpts.map(o => `<option value="${escapeHtml(o.value)}" ${o.value===val?'selected':''}>${escapeHtml(o.label)}</option>`).join('');
+      const helper = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      return `<div class="field"><label>${f.label}</label><select id="mf-${f.key}">${opts}</select>${helper}</div>`;
+    }
+    if(f.type === 'textarea'){
+      return `<div class="field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="4" placeholder="${escapeHtml(f.placeholder||'')}">${escapeHtml(val)}</textarea></div>`;
+    }
+    return `<div class="field"><label>${f.label}</label><input id="mf-${f.key}" type="${f.type||'text'}" value="${escapeHtml(val)}" placeholder="${escapeHtml(f.placeholder||'')}"></div>`;
+  }).join('');
+
+  backdrop.innerHTML = `
+    <div class="modal">
+      <div class="modal-head"><h3>${escapeHtml(title)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">${fieldsHtml}</div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Annuler</button>
+        <button class="btn btn-primary" id="modal-submit-btn">${escapeHtml(submitLabel)}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  document.getElementById('modal-submit-btn').onclick = async () => {
+    const data = {};
+    fields.forEach(f => {
+      if(f.type === 'multiselect'){
+        const checked = backdrop.querySelectorAll(`[data-multiselect="${f.key}"] input[type="checkbox"]:checked`);
+        data[f.key] = Array.from(checked).map(c => c.value);
+      } else {
+        data[f.key] = document.getElementById('mf-'+f.key).value.trim();
+      }
+    });
+    await onSubmit(data);
+    closeModal();
+  };
+}
+function closeModal(){
+  const m = document.getElementById('active-modal');
+  if(m) m.remove();
+}
+
+/* Confirmation intégrée à l'app — remplace window.confirm(), bloqué dans certains aperçus intégrés */
+function confirmDialog(message){
+  return new Promise(resolve => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal" style="width:380px;">
+        <div class="modal-body" style="padding-top:22px;">
+          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;">${escapeHtml(message)}</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="confirm-cancel-btn">Annuler</button>
+          <button class="btn btn-red" id="confirm-ok-btn">Confirmer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    const cleanup = (result) => { backdrop.remove(); resolve(result); };
+    backdrop.querySelector('#confirm-cancel-btn').onclick = () => cleanup(false);
+    backdrop.querySelector('#confirm-ok-btn').onclick = () => cleanup(true);
+    backdrop.addEventListener('click', (e) => { if(e.target === backdrop) cleanup(false); });
+  });
+}
+
+/* Info intégrée à l'app — remplace window.alert() */
+function infoDialog(message){
+  return new Promise(resolve => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal" style="width:380px;">
+        <div class="modal-body" style="padding-top:22px;">
+          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;">${escapeHtml(message)}</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-primary" id="info-ok-btn">OK</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    const cleanup = () => { backdrop.remove(); resolve(); };
+    backdrop.querySelector('#info-ok-btn').onclick = cleanup;
+    backdrop.addEventListener('click', (e) => { if(e.target === backdrop) cleanup(); });
+  });
+}
+
+/* ===================== RENDER ROUTER ===================== */
+function render(){
+  const c = document.getElementById('content');
+  if(currentPage === 'dashboard') c.innerHTML = renderDashboard();
+  else if(currentPage === 'events') c.innerHTML = renderEvents();
+  else if(currentPage === 'dispatch') c.innerHTML = renderDispatch();
+  else if(currentPage === 'serviceVehicles') c.innerHTML = renderServiceVehicles();
+  else if(currentPage === 'citizens') c.innerHTML = renderCitizens();
+  else if(currentPage === 'organizations') c.innerHTML = renderOrganizations();
+  else if(currentPage === 'reports') c.innerHTML = renderReports();
+  else if(currentPage === 'warrants') c.innerHTML = renderWarrants();
+  else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
+  else if(currentPage === 'roster') c.innerHTML = renderRoster();
+  else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
+  else if(currentPage === 'logs') c.innerHTML = renderLogs();
+  updateCounts();
+  renderTicker();
+}
+
+/* ===================== VÉHICULES SERVICE ===================== */
+const SERVICE_VEHICLE_DIVISIONS = ['Patrol Unit', ...DIVISIONS];
+function serviceVehicleDivisionTag(d){
+  if(d === 'Patrol Unit') return '<span class="tag tag-blue">Patrol Unit</span>';
+  return `<span class="tag tag-amber">${escapeHtml(d)}</span>`;
+}
+let serviceVehicleSearch = '';
+function renderServiceVehicles(){
+  const list = DB.serviceVehicles.filter(v => (v.plate+' '+v.model+' '+v.color+' '+v.division).toLowerCase().includes(serviceVehicleSearch.toLowerCase()))
+    .sort((a,b) => (a.plate||'').localeCompare(b.plate||'', undefined, {numeric:true}));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Véhicules Service</div><div class="page-sub">FLOTTE DE PATROUILLE</div></div>
+      <button class="btn btn-primary" onclick="openServiceVehicleModal()">+ Nouveau véhicule</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher une plaque, un modèle, une division..." value="${escapeHtml(serviceVehicleSearch)}" oninput="serviceVehicleSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Plaque</th><th>Modèle</th><th>Couleur</th><th>Division</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(v => `
+          <tr>
+            <td class="mono row-name">${escapeHtml(v.plate)}</td>
+            <td>${escapeHtml(v.model)}</td>
+            <td>${escapeHtml(v.color)||'—'}</td>
+            <td>${serviceVehicleDivisionTag(v.division)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openServiceVehicleModal('${v.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="deleteEntity('serviceVehicles','${v.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">🚓</div>Aucun véhicule de service enregistré.</div>`}
+  `;
+}
+function openServiceVehicleModal(id){
+  const existing = id ? DB.serviceVehicles.find(v => v.id === id) : null;
+  showModal({
+    title: existing ? 'Modifier le véhicule' : 'Nouveau véhicule de service',
+    fields: [
+      { key:'model', label:'Modèle' },
+      { key:'color', label:'Couleur' },
+      { key:'plate', label:'Plaque' },
+      { key:'division', label:'Division', type:'select', options:SERVICE_VEHICLE_DIVISIONS },
+    ],
+    initial: existing || { division:'Patrol Unit' },
+    onSubmit: async (data) => {
+      if(existing) Object.assign(existing, data);
+      else DB.serviceVehicles.push({ id: uid('svh'), ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('serviceVehicles');
+      await logAction(existing ? 'Modification véhicule de service' : 'Création véhicule de service', `${data.plate} — ${data.model}`);
+      render();
+    }
+  });
+}
+
+/* ===================== DISPATCH ===================== */
+const DISPATCH_PRIORITIES = ['Urgente','Élevée','Moyenne','Faible'];
+const UNIT_STATUSES = ['Indisponible','Intervention','Patrouille','Procédure','Vérification'];
+function unitStatusColor(s){
+  if(s === 'Intervention') return 'var(--red)';
+  if(s === 'Indisponible') return 'var(--text-faint)';
+  if(s === 'Procédure') return 'var(--amber)';
+  if(s === 'Vérification') return 'var(--blue)';
+  return 'var(--green)'; // Patrouille (défaut)
+}
+const DISPATCH_TYPES = ['Vol','Agression','Accident de la route','Alarme','Tapage','Suspect armé','Poursuite','Personne disparue','Différend','Divers'];
+function dispatchPriorityTag(p){
+  if(p === 'Urgente') return '<span class="tag tag-red">Urgente</span>';
+  if(p === 'Élevée') return '<span class="tag tag-amber">Élevée</span>';
+  if(p === 'Moyenne') return '<span class="tag tag-blue">Moyenne</span>';
+  return '<span class="tag tag-grey">Faible</span>';
+}
+function dispatchPriorityColor(p){
+  if(p === 'Urgente') return 'var(--red)';
+  if(p === 'Élevée') return 'var(--amber)';
+  if(p === 'Moyenne') return 'var(--blue)';
+  return 'var(--text-faint)';
+}
+function dispatchStatusTag(s){
+  if(s === 'En cours') return '<span class="tag tag-amber">En cours</span>';
+  if(s === 'Terminé') return '<span class="tag tag-green">Terminé</span>';
+  return '<span class="tag tag-blue">En attente</span>';
+}
+function renderDispatch(){
+  const active = DB.dispatch.filter(d => d.status !== 'Terminé')
+    .sort((a,b) => DISPATCH_PRIORITIES.indexOf(a.priority) - DISPATCH_PRIORITIES.indexOf(b.priority) || new Date(b.date)-new Date(a.date));
+  const closed = DB.dispatch.filter(d => d.status === 'Terminé')
+    .sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,10);
+  const endedUnits = [...DB.patrolHistory]
+    .sort((a,b) => new Date(b.endedDate)-new Date(a.endedDate)).slice(0,10);
+
+  const callCard = (d) => {
+    const assignedUnitObjs = d.assignedUnits || []; // [{id, name}] — le nom est figé au moment de l'assignation
+    return `
+    <div class="dispatch-card" style="--dispatch-color:${dispatchPriorityColor(d.priority)};">
+      <div class="dispatch-head">
+        <div>
+          <div class="dispatch-title">${escapeHtml(d.type)}</div>
+          <div class="dispatch-meta">${escapeHtml(d.location||'Localisation non précisée')} · ${fmtDate(d.date)} · Signalé par ${escapeHtml(d.author)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex:none;">${dispatchPriorityTag(d.priority)}${dispatchStatusTag(d.status)}</div>
+      </div>
+      ${d.description ? `<div class="dispatch-desc">${escapeHtml(d.description)}</div>` : ''}
+      <div class="dispatch-units">
+        ${assignedUnitObjs.length ? assignedUnitObjs.map(u => `<span class="badge-chip" style="cursor:pointer;" onclick="unassignPatrolFromCall('${d.id}','${u.id}')" title="Retirer cette patrouille de l'appel"><span class="chip-avatar">${escapeHtml(u.name.slice(0,1))}</span>${escapeHtml(u.name)}</span>`).join('') : '<span class="helper-text">Aucune patrouille assignée</span>'}
+      </div>
+      <div class="dispatch-footer">
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openAssignPatrolModal('${d.id}')">Assigner une patrouille</button>
+          ${d.status !== 'Terminé' ? `<button class="icon-btn" onclick="setDispatchStatus('${d.id}','En cours')">En cours</button><button class="icon-btn" onclick="setDispatchStatus('${d.id}','Terminé')">Marquer terminé</button>` : ''}
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openDispatchModal('${d.id}')">Modifier</button>
+          <button class="icon-btn danger" onclick="deleteEntity('dispatch','${d.id}')">Suppr.</button>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const onDuty = DB.officers.filter(o => o.dutyStatus === 'onDuty');
+  const waiting = DB.officers.filter(o => o.dutyStatus === 'waiting');
+  const officer = currentOfficer();
+  const onShift = !!(officer && officer.dutyStatus && officer.dutyStatus !== 'off');
+
+  const officerTag = (o, onClickFn) => `
+    <div class="duty-tag" onclick="${onClickFn}('${o.badge}')">
+      <span class="duty-badge-num">${escapeHtml(o.badge)}</span>
+      <span class="duty-name">${escapeHtml(o.name)}</span>
+    </div>`;
+
+  const unitCard = (u) => {
+    const members = DB.officers.filter(o => o.dutyStatus === 'unit' && o.unitId === u.id);
+    const status = u.status || 'Patrouille';
+    const vehicleOptions = [
+      { value:'', label: DB.serviceVehicles.length ? '— Aucun véhicule —' : 'Aucun véhicule enregistré' },
+      ...DB.serviceVehicles.map(v => ({ value:v.id, label:`${v.plate} — ${v.model}${v.color ? ' ('+v.color+')' : ''}` }))
+    ];
+    return `
+    <div class="unit-card" style="border-left:3px solid ${unitStatusColor(status)};">
+      <div class="unit-card-head">
+        <div class="unit-card-title">${escapeHtml(u.name)}</div>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openAddMembersModal('${u.id}')">+ Effectif</button>
+          <button class="icon-btn danger" onclick="deleteUnit('${u.id}')">Suppr.</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap;">
+        <select onchange="updateUnitStatus('${u.id}', this.value)" style="width:auto;font-family:var(--font-mono);font-size:11px;padding:5px 8px;color:${unitStatusColor(status)};border-color:${unitStatusColor(status)};background:var(--bg);">
+          ${UNIT_STATUSES.map(s => `<option value="${escapeHtml(s)}" ${s===status?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+        <select onchange="updateUnitVehicle('${u.id}', this.value)" style="width:auto;flex:1;min-width:140px;font-family:var(--font-mono);font-size:11px;padding:5px 8px;background:var(--bg);border-color:var(--border);color:var(--text-dim);">
+          ${vehicleOptions.map(o => `<option value="${escapeHtml(o.value)}" ${o.value===(u.vehicleId||'')?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="unit-members">
+        ${members.length ? members.map(o => `<span class="badge-chip" style="cursor:pointer;" onclick="removeMemberFromUnit('${o.badge}')" title="Retirer de l'unité"><span class="chip-avatar">${escapeHtml(o.badge.slice(0,1))}</span>${escapeHtml(o.badge)} ${escapeHtml(o.name)}</span>`).join('') : '<span class="helper-text">Aucun effectif assigné</span>'}
+      </div>
+    </div>`;
+  };
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Dispatch</div><div class="page-sub">CENTRE DE RÉPARTITION DES APPELS · ${active.length} appel${active.length>1?'s':''} en cours</div></div>
+      <button class="btn ${onShift ? 'btn-red' : ''}" style="${onShift?'':'background:var(--green);color:#04231A;border-color:var(--green);'}" onclick="toggleDuty()">${onShift ? 'Terminer mon service' : 'Prendre mon service'}</button>
+    </div>
+    <div class="dispatch-board">
+      <div class="dispatch-col">
+        <div class="dispatch-panel">
+          <div class="dispatch-panel-head"><div class="left">👥 Unités</div><button class="icon-btn" onclick="openCreateUnitModal()">+</button></div>
+          <div class="dispatch-panel-body">
+            ${DB.patrolUnits.length ? DB.patrolUnits.map(unitCard).join('') : `<div class="helper-text">Aucune unité de patrouille créée.</div>`}
+          </div>
+        </div>
+      </div>
+      <div class="dispatch-col">
+        <div class="dispatch-panel">
+          <div class="dispatch-panel-head"><div class="left">📞 Appels</div><button class="icon-btn" onclick="openDispatchModal()">+</button></div>
+          <div class="dispatch-panel-body">
+            ${active.length ? active.map(callCard).join('') : `<div class="helper-text">Aucun appel en cours. Service calme.</div>`}
+          </div>
+        </div>
+      </div>
+      <div class="dispatch-col">
+        <div class="dispatch-panel" style="margin-bottom:16px;">
+          <div class="dispatch-panel-head"><div class="left">⏱ En attente de dispatch</div></div>
+          <div class="dispatch-panel-body">
+            ${waiting.length ? waiting.map(o => officerTag(o, 'moveOfficerToOnDuty')).join('') : `<div class="helper-text">Aucun agent en attente.</div>`}
+          </div>
+        </div>
+        <div class="dispatch-panel">
+          <div class="dispatch-panel-head"><div class="left">🏢 Agents en service</div></div>
+          <div class="dispatch-panel-body">
+            ${onDuty.length ? onDuty.map(o => officerTag(o, 'moveOfficerToWaiting')).join('') : `<div class="helper-text">Aucun agent en service.</div>`}
+          </div>
+        </div>
+      </div>
+    </div>
+    ${(closed.length || endedUnits.length) ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;">
+      ${closed.length ? `
+      <div>
+        <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;">Appels récemment clôturés</div>
+        <div class="panel-block" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:0;">
+          <div class="panel-block-body">
+            ${closed.map(d => `
+              <div class="activity-row">
+                <div class="activity-time">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>
+                <div class="activity-text"><b>${escapeHtml(d.type)}</b> — ${escapeHtml(d.location||'')} <span style="color:var(--text-faint)">(${(d.assignedUnits||[]).map(u=>u.name).join(', ')||'aucune patrouille'})</span></div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>` : '<div></div>'}
+      ${endedUnits.length ? `
+      <div>
+        <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;">Patrouilles récemment terminées</div>
+        <div class="panel-block" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:0;">
+          <div class="panel-block-body">
+            ${endedUnits.map(u => `
+              <div class="activity-row">
+                <div class="activity-time">${new Date(u.endedDate).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</div>
+                <div class="activity-text"><b>${escapeHtml(u.name)}</b> <span style="color:var(--text-faint)">(${u.members.length ? u.members.map(escapeHtml).join(', ') : 'aucun effectif'})</span></div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>` : '<div></div>'}
+    </div>` : ''}
+  `;
+}
+async function toggleDuty(){
+  const officer = currentOfficer();
+  if(!officer){ await infoDialog("Impossible de te retrouver dans les effectifs."); return; }
+  const onShift = officer.dutyStatus && officer.dutyStatus !== 'off';
+  if(onShift){
+    officer.dutyStatus = 'off';
+    officer.unitId = null;
+    await logAction('Fin de service', `${officer.name} (${officer.badge})`);
+  } else {
+    officer.dutyStatus = 'onDuty';
+    officer.unitId = null;
+    await logAction('Prise de service', `${officer.name} (${officer.badge})`);
+  }
+  await saveKey('officers');
+  render();
+}
+async function moveOfficerToWaiting(badge){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  officer.dutyStatus = 'waiting';
+  officer.unitId = null;
+  await saveKey('officers');
+  await logAction('Passage en attente de dispatch', `${officer.name} (${officer.badge})`);
+  render();
+}
+async function moveOfficerToOnDuty(badge){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  officer.dutyStatus = 'onDuty';
+  officer.unitId = null;
+  await saveKey('officers');
+  await logAction('Retour agents en service', `${officer.name} (${officer.badge})`);
+  render();
+}
+async function removeMemberFromUnit(badge){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  officer.dutyStatus = 'waiting';
+  officer.unitId = null;
+  await saveKey('officers');
+  await logAction('Retrait d\u2019une unité', `${officer.name} (${officer.badge})`);
+  render();
+}
+function openCreateUnitModal(){
+  const waiting = DB.officers.filter(o => o.dutyStatus === 'waiting');
+  if(waiting.length === 0){
+    infoDialog("Aucun agent en attente de dispatch à assigner. Fais d'abord passer des agents en service, puis en attente.");
+    return;
+  }
+  showModal({
+    title: 'Nouvelle unité de patrouille',
+    fields: [
+      { key:'name', label:'Nom / indicatif de l\u2019unité', placeholder:'Ex. Unité 1, Adam-12' },
+      { key:'vehicleId', label:'Véhicule de patrouille', type:'select', options:[
+        { value:'', label: DB.serviceVehicles.length ? '— Aucun véhicule —' : 'Aucun véhicule enregistré' },
+        ...DB.serviceVehicles.map(v => ({ value:v.id, label:`${v.plate} — ${v.model}${v.color ? ' ('+v.color+')' : ''}` }))
+      ] },
+      { key:'members', label:'Effectifs', type:'multiselect', options: waiting.map(o => ({ value:o.badge, label:`${o.badge} — ${o.name}` })),
+        helper:'Sélectionne les agents en attente de dispatch à intégrer.' },
+    ],
+    onSubmit: async (data) => {
+      if(!data.name){ await infoDialog("Un nom d'unité est requis."); return; }
+      const unit = { id: uid('unit'), name: data.name, status:'Patrouille', vehicleId: data.vehicleId || null, date: nowISO(), author: SESSION.callsign };
+      DB.patrolUnits.push(unit);
+      (data.members||[]).forEach(badge => {
+        const officer = DB.officers.find(o => o.badge === badge);
+        if(officer){ officer.dutyStatus = 'unit'; officer.unitId = unit.id; }
+      });
+      await saveKey('patrolUnits');
+      await saveKey('officers');
+      await logAction('Création unité de patrouille', `${data.name} — ${(data.members||[]).length} effectif(s)`);
+      render();
+    }
+  });
+}
+function openAddMembersModal(unitId){
+  const unit = DB.patrolUnits.find(u => u.id === unitId);
+  if(!unit) return;
+  const waiting = DB.officers.filter(o => o.dutyStatus === 'waiting');
+  if(waiting.length === 0){
+    infoDialog("Aucun agent en attente de dispatch à ajouter.");
+    return;
+  }
+  showModal({
+    title: "Ajouter des effectifs — " + unit.name,
+    fields: [
+      { key:'members', label:'Agents en attente', type:'multiselect', options: waiting.map(o => ({ value:o.badge, label:`${o.badge} — ${o.name}` })) },
+    ],
+    onSubmit: async (data) => {
+      (data.members||[]).forEach(badge => {
+        const officer = DB.officers.find(o => o.badge === badge);
+        if(officer){ officer.dutyStatus = 'unit'; officer.unitId = unit.id; }
+      });
+      await saveKey('officers');
+      await logAction('Ajout effectif(s) à une unité', `${unit.name} — ${(data.members||[]).length} agent(s)`);
+      render();
+    }
+  });
+}
+async function updateUnitStatus(unitId, status){
+  const unit = DB.patrolUnits.find(u => u.id === unitId);
+  if(!unit) return;
+  unit.status = status;
+  await saveKey('patrolUnits');
+  await logAction('Statut unité mis à jour', `${unit.name} — ${status}`);
+  render();
+}
+async function updateUnitVehicle(unitId, vehicleId){
+  const unit = DB.patrolUnits.find(u => u.id === unitId);
+  if(!unit) return;
+  unit.vehicleId = vehicleId || null;
+  await saveKey('patrolUnits');
+  const v = vehicleId ? DB.serviceVehicles.find(x => x.id === vehicleId) : null;
+  await logAction('Véhicule de patrouille assigné', `${unit.name} — ${v ? v.plate+' '+v.model+(v.color?' ('+v.color+')':'') : 'aucun'}`);
+  render();
+}
+async function deleteUnit(unitId){
+  const unit = DB.patrolUnits.find(u => u.id === unitId);
+  if(!unit) return;
+  const ok = await confirmDialog(`Dissoudre l'unité "${unit.name}" ? Les effectifs repasseront en attente de dispatch.`);
+  if(!ok) return;
+  const officersBackup = DB.officers.map(o => ({...o}));
+  const unitsBackup = DB.patrolUnits;
+  const historyBackup = DB.patrolHistory;
+  const members = DB.officers.filter(o => o.unitId === unitId).map(o => `${o.badge} ${o.name}`);
+  DB.patrolHistory = [...DB.patrolHistory, { id: uid('punit-hist'), name: unit.name, members, createdDate: unit.date, endedDate: nowISO(), author: SESSION.callsign }];
+  if(DB.patrolHistory.length > 200) DB.patrolHistory = DB.patrolHistory.slice(-200); // évite une croissance illimitée
+  DB.officers.forEach(o => { if(o.unitId === unitId){ o.dutyStatus = 'waiting'; o.unitId = null; } });
+  DB.patrolUnits = DB.patrolUnits.filter(u => u.id !== unitId);
+  const savedOfficers = await saveKey('officers');
+  const savedUnits = await saveKey('patrolUnits');
+  const savedHistory = await saveKey('patrolHistory');
+  if(!savedOfficers || !savedUnits || !savedHistory){
+    DB.officers = officersBackup;
+    DB.patrolUnits = unitsBackup;
+    DB.patrolHistory = historyBackup;
+    render();
+    await infoDialog("La dissolution n'a pas pu être enregistrée (erreur de connexion au stockage). L'unité n'a pas été supprimée — réessaie dans un instant.");
+    return;
+  }
+  await logAction('Dissolution unité de patrouille', unit.name);
+  render();
+}
+function openDispatchModal(id){
+  const existing = id ? DB.dispatch.find(d => d.id === id) : null;
+  showModal({
+    title: existing ? "Modifier l'appel" : 'Nouvel appel dispatch',
+    fields: [
+      { key:'type', label:"Nature de l'appel", type:'select', options:DISPATCH_TYPES },
+      { key:'priority', label:'Priorité', type:'select', options:DISPATCH_PRIORITIES },
+      { key:'location', label:'Localisation' },
+      { key:'description', label:'Détails', type:'textarea' },
+    ],
+    initial: existing || { priority:'Moyenne' },
+    onSubmit: async (data) => {
+      if(existing){
+        Object.assign(existing, data);
+      } else {
+        DB.dispatch.push({ id: uid('disp'), ...data, status:'En attente', assignedUnits:[], date: nowISO(), author: SESSION.callsign });
+      }
+      await saveKey('dispatch');
+      await logAction(existing ? 'Modification appel dispatch' : 'Nouvel appel dispatch', `${data.type} — ${data.location||''} (${data.priority})`);
+      render();
+    }
+  });
+}
+function openAssignPatrolModal(callId){
+  const d = DB.dispatch.find(x => x.id === callId);
+  if(!d) return;
+  if(DB.patrolUnits.length === 0){
+    infoDialog("Aucune patrouille créée. Crée d'abord une unité dans le panneau \u00abUnités\u00bb.");
+    return;
+  }
+  d.assignedUnits = d.assignedUnits || [];
+  showModal({
+    title: 'Assigner une patrouille — ' + d.type,
+    fields: [
+      { key:'units', label:'Patrouilles disponibles', type:'multiselect',
+        options: DB.patrolUnits.map(u => ({ value:u.id, label:u.name })) },
+    ],
+    initial: { units: d.assignedUnits.map(u => u.id) },
+    onSubmit: async (data) => {
+      // le nom est figé au moment de l'assignation : il reste lisible même si la patrouille est dissoute plus tard
+      d.assignedUnits = (data.units || []).map(id => {
+        const u = DB.patrolUnits.find(x => x.id === id);
+        return { id, name: u ? u.name : id };
+      });
+      if(d.assignedUnits.length && d.status === 'En attente') d.status = 'En cours';
+      await saveKey('dispatch');
+      const names = d.assignedUnits.map(u => u.name).join(', ') || 'aucune';
+      await logAction('Assignation patrouille(s) à un appel', `${d.type} — ${names}`);
+      render();
+    }
+  });
+}
+async function unassignPatrolFromCall(callId, unitId){
+  const d = DB.dispatch.find(x => x.id === callId);
+  if(!d) return;
+  const removed = (d.assignedUnits || []).find(u => u.id === unitId);
+  d.assignedUnits = (d.assignedUnits || []).filter(u => u.id !== unitId);
+  await saveKey('dispatch');
+  await logAction('Retrait patrouille d\u2019un appel', `${d.type} — ${removed ? removed.name : unitId}`);
+  render();
+}
+async function setDispatchStatus(id, status){
+  const d = DB.dispatch.find(x => x.id === id);
+  if(!d) return;
+  d.status = status;
+  await saveKey('dispatch');
+  await logAction('Statut appel dispatch mis à jour', `${d.type} — ${status}`);
+  render();
+}
+
+/* ===================== ÉVÈNEMENTS (CALENDRIER) ===================== */
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const WEEKDAY_NAMES = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+function toDateKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function changeCalendarMonth(delta){
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+delta, 1);
+  render();
+}
+function eventsOnDate(dateKey){
+  return DB.events.filter(e => e.date === dateKey).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+}
+function renderEvents(){
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // lundi = 0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayKey = toDateKey(new Date());
+
+  let cells = '';
+  for(let i=0; i<startOffset; i++){
+    cells += `<div class="cal-cell cal-empty"></div>`;
+  }
+  for(let day=1; day<=daysInMonth; day++){
+    const dateObj = new Date(year, month, day);
+    const dateKey = toDateKey(dateObj);
+    const dayEvents = eventsOnDate(dateKey);
+    const isToday = dateKey === todayKey;
+    const pills = dayEvents.slice(0,3).map(e => `<div class="cal-event-pill" title="${escapeHtml(e.title)}">${e.time ? escapeHtml(e.time)+' · ' : ''}${escapeHtml(e.title)}</div>`).join('');
+    const more = dayEvents.length > 3 ? `<div class="cal-event-more">+${dayEvents.length-3} autre${dayEvents.length-3>1?'s':''}</div>` : '';
+    cells += `
+      <div class="cal-cell${isToday?' cal-today':''}" onclick="openDayModal('${dateKey}')">
+        <div class="cal-daynum">${day}</div>
+        ${pills}${more}
+      </div>`;
+  }
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Évènements</div><div class="page-sub">CALENDRIER DU SERVICE · VUE MENSUELLE</div></div>
+      <button class="btn btn-primary" onclick="openEventModal(toDateKey(new Date()))">+ Nouvel évènement</button>
+    </div>
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="changeCalendarMonth(-1)">‹</button>
+      <div class="cal-month-label">${MONTH_NAMES[month]} ${year}</div>
+      <button class="cal-nav-btn" onclick="changeCalendarMonth(1)">›</button>
+    </div>
+    <div class="cal-grid">
+      ${WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('')}
+      ${cells}
+    </div>
+  `;
+}
+function openDayModal(dateKey){
+  const dayEvents = eventsOnDate(dateKey);
+  const dateLabel = new Date(dateKey+'T00:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <div class="modal-head"><h3 style="text-transform:capitalize;">${escapeHtml(dateLabel)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body">
+        ${dayEvents.length ? dayEvents.map(e => `
+          <div class="event-list-item">
+            <div>
+              <div style="color:var(--text);font-weight:500;font-size:13.5px;">${e.time ? `<span class="mono" style="color:var(--amber);margin-right:6px;">${escapeHtml(e.time)}</span>` : ''}${escapeHtml(e.title)}</div>
+              ${e.description ? `<div style="color:var(--text-dim);font-size:12.5px;margin-top:3px;line-height:1.4;">${escapeHtml(e.description)}</div>` : ''}
+              <div class="helper-text" style="margin-top:4px;">Ajouté par ${escapeHtml(e.author)}</div>
+            </div>
+            <div class="row-actions" style="flex:none;">
+              <button class="icon-btn" onclick="closeModal();openEventModal('${dateKey}','${e.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="closeModal();deleteEntity('events','${e.id}')">Suppr.</button>
+            </div>
+          </div>`).join('') : `<div class="helper-text" style="padding:10px 0;">Aucun évènement ce jour-là.</div>`}
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn btn-primary" onclick="closeModal();openEventModal('${dateKey}')">+ Ajouter un évènement</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
+function openEventModal(dateKey, id){
+  const existing = id ? DB.events.find(e => e.id === id) : null;
+  showModal({
+    title: existing ? "Modifier l'évènement" : 'Nouvel évènement',
+    fields: [
+      { key:'title', label:'Titre' },
+      { key:'date', label:'Date', type:'date' },
+      { key:'time', label:'Heure', type:'time' },
+      { key:'description', label:'Description', type:'textarea' },
+    ],
+    initial: existing || { date: dateKey },
+    onSubmit: async (data) => {
+      if(existing) Object.assign(existing, data);
+      else DB.events.push({ id: uid('evt'), ...data, createdAt: nowISO(), author: SESSION.callsign });
+      await saveKey('events');
+      await logAction(existing ? 'Modification évènement' : 'Création évènement', `${data.title} — ${data.date}`);
+      calendarMonth = new Date(new Date(data.date+'T00:00:00').getFullYear(), new Date(data.date+'T00:00:00').getMonth(), 1);
+      render();
+    }
+  });
+}
+
+/* ===================== DASHBOARD ===================== */
+function renderDashboard(){
+  const activeWarrants = DB.warrants.filter(w => w.status === 'Actif').length;
+  const openReports = DB.reports.filter(r => r.status === 'Ouvert').length;
+
+  const recent = [
+    ...DB.reports.map(r => ({ t:r.date, text:`Rapport <b>${escapeHtml(r.caseNumber)}</b> créé — ${escapeHtml(r.title)}`, by:r.author })),
+    ...DB.warrants.map(w => ({ t:w.date, text:`Mandat émis contre <b>${escapeHtml(w.subject)}</b>`, by:w.author })),
+    ...DB.citizens.map(c => ({ t:c.date, text:`Fiche citoyen créée — <b>${escapeHtml(c.firstName+' '+c.lastName)}</b>`, by:c.author })),
+  ].sort((a,b) => new Date(b.t) - new Date(a.t)).slice(0,8);
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Tableau de bord</div><div class="page-sub">SERVICE ACTIF · ${escapeHtml(SESSION.callsign)}</div></div>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="stat-card" style="--stat-color:var(--amber)"><div class="stat-num">${DB.citizens.length}</div><div class="stat-label">Citoyens enregistrés</div></div>
+      <div class="stat-card" style="--stat-color:var(--green)"><div class="stat-num">${openReports}</div><div class="stat-label">Rapports ouverts</div></div>
+      <div class="stat-card" style="--stat-color:var(--red)"><div class="stat-num">${activeWarrants}</div><div class="stat-label">Mandats actifs</div></div>
+    </div>
+    <div class="panel-block">
+      <div class="panel-block-head">Activité récente</div>
+      <div class="panel-block-body">
+        ${recent.length ? recent.map(r => `
+          <div class="activity-row">
+            <div class="activity-time">${new Date(r.t).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})} ${new Date(r.t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+            <div class="activity-text">${r.text} <span style="color:var(--text-faint)">— ${escapeHtml(r.by||'')}</span></div>
+          </div>`).join('') : '<div class="empty-state"><div class="em-icon">○</div>Aucune activité enregistrée pour le moment.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+/* ===================== CITIZENS ===================== */
+let citizenSearch = '';
+function renderCitizens(){
+  const list = DB.citizens.filter(c =>
+    (c.firstName+' '+c.lastName+' '+c.plate).toLowerCase().includes(citizenSearch.toLowerCase())
+  ).sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Citoyens</div><div class="page-sub">FICHIER CENTRAL D'IDENTIFICATION</div></div>
+      <button class="btn btn-primary" onclick="openCitizenModal()">+ Nouvelle fiche</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un nom, prénom..." value="${escapeHtml(citizenSearch)}" oninput="citizenSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Nom</th><th>Date de naissance</th><th>Adresse</th><th>Permis</th><th>Infractions</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(c => {
+          return `
+          <tr>
+            <td class="row-name">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}</td>
+            <td class="mono">${escapeHtml(c.dob)||'—'}</td>
+            <td>${escapeHtml(c.address)||'—'}</td>
+            <td>${licenseTag(c.license)}</td>
+            <td>${(c.record||[]).length ? `<span class="tag tag-red">${(c.record||[]).length}</span>` : '<span class="tag tag-grey">Vierge</span>'}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openCitizenModal('${c.id}')">Modifier</button>
+              <button class="icon-btn" onclick="addRecordEntry('${c.id}')">+ Infraction</button>
+              <button class="icon-btn danger" onclick="deleteEntity('citizens','${c.id}')">Suppr.</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">☰</div>Aucun citoyen ne correspond à cette recherche.</div>`}
+  `;
+}
+function licenseTag(status){
+  if(status === 'Valide') return '<span class="tag tag-green">Valide</span>';
+  if(status === 'Suspendu') return '<span class="tag tag-amber">Suspendu</span>';
+  if(status === 'Révoqué') return '<span class="tag tag-red">Révoqué</span>';
+  return '<span class="tag tag-grey">—</span>';
+}
+function openCitizenModal(id){
+  const existing = id ? DB.citizens.find(c => c.id === id) : null;
+  showModal({
+    title: existing ? 'Modifier la fiche' : 'Nouvelle fiche citoyen',
+    fields: [
+      { key:'firstName', label:'Prénom' },
+      { key:'lastName', label:'Nom' },
+      { key:'dob', label:'Date de naissance', placeholder:'JJ/MM/AAAA' },
+      { key:'address', label:'Adresse' },
+      { key:'license', label:'Statut du permis', type:'select', options:['Valide','Suspendu','Révoqué','Aucun'] },
+      { key:'notes', label:'Notes', type:'textarea' },
+    ],
+    initial: existing || {},
+    onSubmit: async (data) => {
+      if(existing){
+        Object.assign(existing, data);
+        await saveKey('citizens');
+        await logAction('Modification fiche citoyen', `${data.firstName} ${data.lastName}`);
+      } else {
+        DB.citizens.push({ id: uid('cit'), ...data, record:[], date: nowISO(), author: SESSION.callsign });
+        await saveKey('citizens');
+        await logAction('Création fiche citoyen', `${data.firstName} ${data.lastName}`);
+      }
+      render();
+    }
+  });
+}
+function addRecordEntry(id){
+  const c = DB.citizens.find(x => x.id === id);
+  showModal({
+    title: 'Ajouter une infraction — ' + c.firstName + ' ' + c.lastName,
+    fields: [
+      { key:'charge', label:"Chef d'accusation" },
+      { key:'notes', label:'Détails', type:'textarea' }
+    ],
+    onSubmit: async (data) => {
+      c.record = c.record || [];
+      c.record.push({ ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('citizens');
+      await logAction('Infraction ajoutée au casier', `${c.firstName} ${c.lastName} — ${data.charge}`);
+      render();
+    }
+  });
+}
+
+/* ===================== ORGANISATIONS / GANGS ===================== */
+let orgSearch = '';
+let hideInactiveOrgs = false;
+let orgMapZoom = 1;
+let zoneDrawing = null; // { orgId, points:[{x,y}, ...] } pendant le placement des 4 points
+
+const ORG_MAP_BASE = `
+  <defs>
+    <pattern id="orgGrid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(240,168,58,0.045)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="600" height="760" fill="url(#orgGrid)"/>
+  <path d="M300,40 C380,58 432,118 418,178 C462,158 502,202 480,260
+           C522,280 542,340 500,380 C542,420 520,482 468,500
+           C480,560 438,602 378,590 C380,640 320,662 278,630
+           C220,660 158,630 150,580 C98,570 78,520 110,480
+           C68,460 58,398 100,368 C58,338 70,278 120,258
+           C88,220 110,168 160,158 C148,108 200,68 260,80
+           C258,50 280,28 300,40 Z"
+        fill="#4a5540" stroke="#8a9478" stroke-width="3"/>
+  <path d="M255,300 C300,290 330,330 310,380 C340,400 330,450 290,460
+           C280,500 230,500 215,460 C180,450 175,400 210,380
+           C190,350 210,310 255,300 Z" fill="#0f1f30" opacity="0.85"/>
+  <polygon points="330,90 370,110 355,150 315,140 305,110" fill="#3a4234"/>
+  <polygon points="140,220 180,235 165,270 125,260" fill="#3a4234"/>
+  <polygon points="420,190 460,205 448,235 412,225" fill="#3a4234"/>
+  <rect x="330" y="480" width="120" height="90" rx="4" fill="#33261c" opacity="0.9"/>
+  <g stroke="#5c6b52" stroke-width="1.5" opacity="0.5">
+    <line x1="150" y1="120" x2="330" y2="470"/>
+    <line x1="120" y1="360" x2="440" y2="520"/>
+    <line x1="330" y1="480" x2="470" y2="380"/>
+  </g>`;
+
+function buildOrgMapSVG(){
+  // territoires déjà définis (polygones à 4 points, dans la couleur de l'organisation)
+  const zonesSvg = DB.organizations
+    .filter(o => Array.isArray(o.zone) && o.zone.length === 4)
+    .map(o => {
+      const pts = o.zone.map(p => `${p.x},${p.y}`).join(' ');
+      const color = o.color || '#F0A83A';
+      return `<polygon class="org-zone-shape" points="${pts}" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="2.5"><title>${escapeHtml(o.name)}</title></polygon>`;
+    }).join('');
+
+  // points déjà placés pendant le placement en cours
+  let progressSvg = '';
+  if(zoneDrawing && zoneDrawing.points.length){
+    const linePts = zoneDrawing.points.map(p => `${p.x},${p.y}`).join(' ');
+    progressSvg += `<polyline points="${linePts}" fill="none" stroke="#F0A83A" stroke-width="2" stroke-dasharray="6,4"/>`;
+    progressSvg += zoneDrawing.points.map((p,i) => `
+      <circle cx="${p.x}" cy="${p.y}" r="6" fill="#F0A83A" stroke="#0A1622" stroke-width="2"/>
+      <text x="${p.x+10}" y="${p.y-8}" font-size="14" fill="#F0A83A" font-family="monospace">${i+1}</text>`).join('');
+  }
+
+  return `<svg viewBox="0 0 600 760" width="620" height="785" xmlns="http://www.w3.org/2000/svg"
+      onclick="handleOrgMapClick(event)" style="cursor:${zoneDrawing?'crosshair':'default'};">
+    ${ORG_MAP_BASE}
+    ${zonesSvg}
+    ${progressSvg}
+  </svg>`;
+}
+
+function renderOrganizations(){
+  const list = DB.organizations
+    .filter(o => (o.name+' '+o.type).toLowerCase().includes(orgSearch.toLowerCase()))
+    .filter(o => !hideInactiveOrgs || o.status !== 'Inactif')
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Organisations / Gangs</div><div class="page-sub">RÉPERTOIRE DES GROUPES ORGANISÉS</div></div>
+    </div>
+    <div class="org-board">
+      <div class="org-list-panel">
+        <div class="org-list-head">
+          <div class="org-list-count">
+            <span>${DB.organizations.length} organisation${DB.organizations.length>1?'s':''}</span>
+            <label class="org-toggle">
+              <input type="checkbox" ${hideInactiveOrgs?'checked':''} onchange="hideInactiveOrgs=this.checked;render()">
+              Cacher les organisations inactives
+            </label>
+          </div>
+          <input class="org-search" placeholder="Rechercher..." value="${escapeHtml(orgSearch)}" oninput="orgSearch=this.value;render()">
+        </div>
+        <div class="org-list-body">
+          ${list.length ? list.map(o => `
+            <div class="org-row" onclick="openOrganizationModal('${o.id}')">
+              <div>
+                <div class="org-row-name"><span class="org-row-swatch" style="background:${escapeHtml(o.color||'#8A96A6')}"></span>${escapeHtml(o.name)}</div>
+                <div class="org-row-meta">${escapeHtml(o.type)||'—'} · ${o.members||0} membre${(o.members||0)>1?'s':''}${o.status==='Inactif' ? ' · <span style="color:var(--text-faint)">Inactif</span>' : ''}${(Array.isArray(o.zone)&&o.zone.length===4) ? ' · <span style="color:var(--green)">Zone définie</span>' : ''}</div>
+              </div>
+              <div class="org-row-actions">
+                <button class="zone-row-btn" onclick="event.stopPropagation();startZoneDrawing('${o.id}')" title="${(Array.isArray(o.zone)&&o.zone.length===4)?'Redéfinir la zone':'Définir la zone'}">${(Array.isArray(o.zone)&&o.zone.length===4)?'✎ Zone':'+ Zone'}</button>
+                ${(Array.isArray(o.zone)&&o.zone.length===4) ? `<button class="zone-row-btn" onclick="event.stopPropagation();clearOrgZone('${o.id}')" title="Effacer la zone">✕ Zone</button>` : ''}
+                <button class="org-pin-btn" onclick="event.stopPropagation();deleteEntity('organizations','${o.id}')" title="Supprimer">✕</button>
+              </div>
+            </div>`).join('') : `<div class="empty-state"><div class="em-icon">⌘</div>Aucune organisation ne correspond.</div>`}
+        </div>
+        <div class="org-list-foot">
+          <button class="org-add-btn" onclick="openOrganizationModal()">+ Ajouter une organisation</button>
+        </div>
+      </div>
+      <div class="org-map-panel">
+        <div class="org-map-svg-wrap"><div style="transform:scale(${orgMapZoom});transition:transform .15s;">${buildOrgMapSVG()}</div></div>
+        <div class="org-map-controls">
+          <button onclick="changeOrgMapZoom(0.2)">+</button>
+          <button onclick="changeOrgMapZoom(-0.2)">−</button>
+        </div>
+        ${zoneDrawing ? `
+        <div class="org-map-banner">
+          Clique sur la carte pour placer le point ${zoneDrawing.points.length+1}/4
+          <button onclick="cancelZoneDrawing()">Annuler</button>
+        </div>` : ''}
+        <div class="org-map-label">Comté de San Andreas — Carte schématique</div>
+      </div>
+    </div>
+  `;
+}
+function changeOrgMapZoom(delta){
+  orgMapZoom = Math.min(2.4, Math.max(0.6, +(orgMapZoom + delta).toFixed(2)));
+  render();
+}
+function startZoneDrawing(orgId){
+  const org = DB.organizations.find(o => o.id === orgId);
+  if(!org) return;
+  zoneDrawing = { orgId, points: [] };
+  render();
+}
+function cancelZoneDrawing(){
+  zoneDrawing = null;
+  render();
+}
+async function clearOrgZone(orgId){
+  const org = DB.organizations.find(o => o.id === orgId);
+  if(!org) return;
+  org.zone = null;
+  await saveKey('organizations');
+  await logAction('Zone de territoire effacée', org.name);
+  render();
+}
+function handleOrgMapClick(evt){
+  if(!zoneDrawing) return;
+  const svg = evt.currentTarget;
+  if(!svg.createSVGPoint || !svg.getScreenCTM) return; // environnement sans support SVG géométrique
+  const ctm = svg.getScreenCTM();
+  if(!ctm) return;
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const loc = pt.matrixTransform(ctm.inverse());
+  zoneDrawing.points.push({ x: Math.round(loc.x), y: Math.round(loc.y) });
+  if(zoneDrawing.points.length >= 4){
+    finishZoneDrawing();
+  } else {
+    render();
+  }
+}
+async function finishZoneDrawing(){
+  const org = DB.organizations.find(o => o.id === zoneDrawing.orgId);
+  const points = zoneDrawing.points;
+  zoneDrawing = null;
+  if(org){
+    org.zone = points;
+    await saveKey('organizations');
+    await logAction('Zone de territoire définie', org.name);
+  }
+  render();
+}
+function openOrganizationModal(id){
+  const existing = id ? DB.organizations.find(o => o.id === id) : null;
+  showModal({
+    title: existing ? "Modifier l'organisation" : 'Nouvelle organisation',
+    fields: [
+      { key:'name', label:'Nom' },
+      { key:'type', label:'Type', placeholder:'Ex. Gang, Mafia, MC, Organisation' },
+      { key:'members', label:'Nombre de membres', type:'number', placeholder:'0' },
+      { key:'status', label:'Statut', type:'select', options:['Actif','Inactif'] },
+      { key:'color', label:'Couleur (territoire)', type:'color' },
+      { key:'notes', label:'Notes', type:'textarea' },
+    ],
+    initial: existing || { status:'Actif', color:'#F0A83A', members:'0' },
+    onSubmit: async (data) => {
+      if(!data.name){ await infoDialog("Le nom de l'organisation est requis."); return; }
+      if(existing) Object.assign(existing, data);
+      else DB.organizations.push({ id: uid('org'), ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('organizations');
+      await logAction(existing ? 'Modification organisation' : 'Création organisation', data.name);
+      render();
+    }
+  });
+}
+
+/* ===================== REPORTS ===================== */
+function nextCaseNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.reports.filter(r => r.caseNumber && r.caseNumber.includes('-'+year+'-')).length + 1;
+  return `SA-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function renderReports(){
+  const list = [...DB.reports].sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Rapports</div><div class="page-sub">DOSSIERS D'INCIDENTS</div></div>
+      <button class="btn btn-primary" onclick="openReportModal()">+ Nouveau rapport</button>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N° Dossier</th><th>Titre</th><th>Type</th><th>Date</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(r => `
+          <tr>
+            <td class="mono row-name">${escapeHtml(r.caseNumber)}</td>
+            <td>${escapeHtml(r.title)}</td>
+            <td><span class="tag tag-blue">${escapeHtml(r.type)}</span></td>
+            <td class="mono">${new Date(r.date).toLocaleDateString('fr-FR')}</td>
+            <td>${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : '<span class="tag tag-green">Clos</span>'}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openReportModal('${r.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="deleteEntity('reports','${r.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">▤</div>Aucun rapport rédigé.</div>`}
+  `;
+}
+function openReportModal(id){
+  const existing = id ? DB.reports.find(r => r.id === id) : null;
+  showModal({
+    title: existing ? 'Modifier le rapport' : "Nouveau rapport d'incident",
+    fields: [
+      { key:'title', label:'Titre' },
+      { key:'type', label:'Type', type:'select', options:['Infraction routière','Agression','Vol','Cambriolage','Trafic','Homicide','Divers'] },
+      { key:'status', label:'Statut', type:'select', options:['Ouvert','Clos'] },
+      { key:'involved', label:'Personnes / agents impliqués' },
+      { key:'narrative', label:'Récit des faits', type:'textarea' },
+    ],
+    initial: existing || {},
+    onSubmit: async (data) => {
+      let caseNumber = existing ? existing.caseNumber : nextCaseNumber();
+      if(existing) Object.assign(existing, data);
+      else DB.reports.push({ id: uid('rep'), caseNumber, ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('reports');
+      await logAction(existing ? 'Modification rapport' : 'Création rapport', `${caseNumber} — ${data.title}`);
+      render();
+    }
+  });
+}
+
+/* ===================== DETECTIVE — RAPPORTS ===================== */
+function nextDetectiveCaseNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.detectiveReports.filter(r => r.caseNumber && r.caseNumber.includes('-'+year+'-')).length + 1;
+  return `DET-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function renderDetectiveReports(){
+  if(!hasDetectiveAccess()){
+    return `<div class="empty-state"><div class="em-icon">⚑</div>Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.</div>`;
+  }
+  const list = [...DB.detectiveReports].sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Rapports — Detective</div><div class="page-sub">DOSSIERS D'ENQUÊTE</div></div>
+      <button class="btn btn-primary" onclick="openDetectiveReportModal()">+ Nouveau rapport</button>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N° Dossier</th><th>Titre</th><th>Type</th><th>Date</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(r => `
+          <tr>
+            <td class="mono row-name">${escapeHtml(r.caseNumber)}</td>
+            <td>${escapeHtml(r.title)}</td>
+            <td><span class="tag tag-blue">${escapeHtml(r.type)}</span></td>
+            <td class="mono">${new Date(r.date).toLocaleDateString('fr-FR')}</td>
+            <td>${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : (r.status === 'Classé sans suite' ? '<span class="tag tag-grey">Classé sans suite</span>' : '<span class="tag tag-green">Résolu</span>')}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openDetectiveReportModal('${r.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="deleteEntity('detectiveReports','${r.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">⚑</div>Aucun rapport d'enquête rédigé.</div>`}
+  `;
+}
+function openDetectiveReportModal(id){
+  if(!hasDetectiveAccess()){
+    infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
+    return;
+  }
+  const existing = id ? DB.detectiveReports.find(r => r.id === id) : null;
+  showModal({
+    title: existing ? 'Modifier le rapport' : "Nouveau rapport d'enquête",
+    fields: [
+      { key:'title', label:"Titre de l'enquête" },
+      { key:'type', label:'Type', type:'select', options:['Homicide','Disparition','Trafic organisé','Fraude','Cybercriminalité','Filature','Divers'] },
+      { key:'status', label:'Statut', type:'select', options:['Ouvert','Résolu','Classé sans suite'] },
+      { key:'suspects', label:'Suspects / personnes d\u2019intérêt' },
+      { key:'narrative', label:"Éléments de l'enquête", type:'textarea' },
+    ],
+    initial: existing || {},
+    onSubmit: async (data) => {
+      if(!hasDetectiveAccess()) return; // double vérification avant écriture
+      let caseNumber = existing ? existing.caseNumber : nextDetectiveCaseNumber();
+      if(existing) Object.assign(existing, data);
+      else DB.detectiveReports.push({ id: uid('det'), caseNumber, ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('detectiveReports');
+      await logAction(existing ? 'Modification rapport Detective' : 'Création rapport Detective', `${caseNumber} — ${data.title}`);
+      render();
+    }
+  });
+}
+
+/* ===================== WARRANTS ===================== */
+function renderWarrants(){
+  const list = [...DB.warrants].sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Mandats</div><div class="page-sub">MANDATS D'ARRÊT ET DE PERQUISITION</div></div>
+      <button class="btn btn-primary" onclick="openWarrantModal()">+ Nouveau mandat</button>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Sujet</th><th>Chef d'accusation</th><th>Émis par</th><th>Date</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(w => `
+          <tr>
+            <td class="row-name">${escapeHtml(w.subject)}</td>
+            <td>${escapeHtml(w.charge)}</td>
+            <td class="mono">${escapeHtml(w.author)}</td>
+            <td class="mono">${new Date(w.date).toLocaleDateString('fr-FR')}</td>
+            <td>${warrantTag(w.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openWarrantModal('${w.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="deleteEntity('warrants','${w.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">⚠</div>Aucun mandat en cours.</div>`}
+  `;
+}
+function warrantTag(status){
+  if(status === 'Actif') return '<span class="tag tag-red">Actif</span>';
+  if(status === 'Exécuté') return '<span class="tag tag-green">Exécuté</span>';
+  return '<span class="tag tag-grey">Annulé</span>';
+}
+function openWarrantModal(id){
+  const existing = id ? DB.warrants.find(w => w.id === id) : null;
+  showModal({
+    title: existing ? 'Modifier le mandat' : 'Nouveau mandat',
+    fields: [
+      { key:'subject', label:'Sujet visé' },
+      { key:'charge', label:"Chef d'accusation" },
+      { key:'status', label:'Statut', type:'select', options:['Actif','Exécuté','Annulé'] },
+      { key:'notes', label:'Notes', type:'textarea' },
+    ],
+    initial: existing || {},
+    onSubmit: async (data) => {
+      if(existing) Object.assign(existing, data);
+      else DB.warrants.push({ id: uid('war'), ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('warrants');
+      await logAction(existing ? 'Modification mandat' : 'Création mandat', data.subject);
+      render();
+    }
+  });
+}
+
+/* ===================== CODE PÉNAL ===================== */
+function isChief(){
+  return SESSION && SESSION.rank === 'Chief of Police';
+}
+let penalCodeSearch = '';
+let penalCodeExpanded = new Set();
+const PENAL_CATEGORY_ORDER = ['Contraventionnelle','Délit mineur','Délit majeur','Crime'];
+function togglePenalCode(id){
+  if(penalCodeExpanded.has(id)) penalCodeExpanded.delete(id);
+  else penalCodeExpanded.add(id);
+  render();
+}
+function renderPenalCode(){
+  const list = DB.penalCode.filter(p => (p.code+' '+p.title+' '+p.category+' '+(p.description||'')).toLowerCase().includes(penalCodeSearch.toLowerCase()))
+    .sort((a,b) => {
+      const catDiff = PENAL_CATEGORY_ORDER.indexOf(a.category) - PENAL_CATEGORY_ORDER.indexOf(b.category);
+      if(catDiff !== 0) return catDiff;
+      return (a.code||'').localeCompare(b.code||'', undefined, {numeric:true, sensitivity:'base'});
+    });
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Code Pénal</div><div class="page-sub">RÉFÉRENTIEL DES INFRACTIONS · ÉTAT DE SAN ANDREAS</div></div>
+      ${isChief()
+        ? `<button class="btn btn-primary" onclick="openPenalCodeModal()">+ Nouvelle infraction</button>`
+        : `<span class="tag tag-grey" title="Réservé au grade Chief">Gestion réservée au Chief</span>`}
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un code, un intitulé, une description..." value="${escapeHtml(penalCodeSearch)}" oninput="penalCodeSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? PENAL_CATEGORY_ORDER.filter(cat => list.some(p => p.category === cat)).map(cat => {
+      const rows = list.filter(p => p.category === cat);
+      return `
+    <div class="panel-block-head" style="border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0;margin-top:16px;">
+      ${penalCategoryTag(cat)}<span style="margin-left:8px;">${rows.length} infraction${rows.length>1?'s':''}</span>
+    </div>
+    <table style="border-radius:0 0 var(--radius) var(--radius);table-layout:fixed;">
+      <colgroup>
+        <col style="width:28px;">
+        <col style="width:130px;">
+        <col>
+        <col style="width:110px;">
+        <col style="width:110px;">
+        ${isChief() ? '<col style="width:150px;">' : ''}
+      </colgroup>
+      <thead><tr><th style="width:24px;"></th><th>Code</th><th>Intitulé</th><th>Amende</th><th>Peine</th>${isChief() ? '<th></th>' : ''}</tr></thead>
+      <tbody>
+        ${rows.map(p => {
+          const expanded = penalCodeExpanded.has(p.id);
+          return `
+          <tr style="cursor:pointer;" onclick="togglePenalCode('${p.id}')">
+            <td class="mono" style="color:var(--text-faint);">${expanded ? '▾' : '▸'}</td>
+            <td class="mono row-name">${escapeHtml(p.code)}</td>
+            <td>${escapeHtml(p.title)}</td>
+            <td class="mono" style="white-space:nowrap;">${p.fine ? formatMoney(p.fine) : '—'}</td>
+            <td class="mono" style="white-space:nowrap;">${p.jailTime ? escapeHtml(p.jailTime)+' mois' : '—'}</td>
+            ${isChief() ? `
+            <td class="row-actions">
+              <button class="icon-btn" onclick="event.stopPropagation();openPenalCodeModal('${p.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('penalCode','${p.id}')">Suppr.</button>
+            </td>` : ''}
+          </tr>
+          ${expanded ? `
+          <tr>
+            <td></td>
+            <td colspan="${isChief() ? 4 : 3}" style="padding-top:0;padding-bottom:14px;color:var(--text-dim);font-size:12.5px;line-height:1.5;">
+              ${p.description ? escapeHtml(p.description).replace(/\\n/g,'<br>') : '<span class="mono" style="color:var(--text-faint);">Aucune description renseignée.</span>'}
+            </td>
+          </tr>` : ''}`;
+        }).join('')}
+      </tbody>
+    </table>`;
+    }).join('') : `<div class="empty-state"><div class="em-icon">§</div>Aucune infraction ne correspond à cette recherche.</div>`}
+  `;
+}
+function formatMoney(value){
+  const num = parseFloat(String(value).replace(',', '.').replace(/[^0-9.-]/g,''));
+  if(isNaN(num)) return '—';
+  const parts = num.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts.join(',') + '\u00A0$';
+}
+function penalCategoryTag(cat){
+  if(cat === 'Crime') return '<span class="tag tag-red">Crime</span>';
+  if(cat === 'Délit majeur') return '<span class="tag tag-amber">Délit majeur</span>';
+  if(cat === 'Délit mineur') return '<span class="tag tag-blue">Délit mineur</span>';
+  return '<span class="tag tag-grey">Contraventionnelle</span>';
+}
+function openPenalCodeModal(id){
+  if(!isChief()){
+    infoDialog("Seul le grade Chief of Police peut gérer le Code Pénal.");
+    return;
+  }
+  const existing = id ? DB.penalCode.find(p => p.id === id) : null;
+  showModal({
+    title: existing ? "Modifier l'infraction" : 'Nouvelle infraction',
+    fields: [
+      { key:'code', label:'Code', placeholder:'Ex. PC 419' },
+      { key:'title', label:'Intitulé' },
+      { key:'category', label:'Catégorie', type:'select', options:PENAL_CATEGORY_ORDER },
+      { key:'fine', label:'Amende ($)', placeholder:'Ex. 2500 (sera affiché 2.500,00 $)' },
+      { key:'jailTime', label:'Peine (mois)', placeholder:'Ex. 12' },
+      { key:'description', label:'Description', type:'textarea' },
+    ],
+    initial: existing || {},
+    onSubmit: async (data) => {
+      if(!isChief()) return; // double vérification avant écriture
+      if(existing) Object.assign(existing, data);
+      else DB.penalCode.push({ id: uid('pc'), ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('penalCode');
+      await logAction(existing ? 'Modification infraction (Code Pénal)' : 'Création infraction (Code Pénal)', `${data.code} — ${data.title}`);
+      render();
+    }
+  });
+}
+
+/* ===================== ROSTER ===================== */
+function renderRoster(){
+  const list = [...DB.officers].sort((a,b) => new Date(b.lastSeen)-new Date(a.lastSeen));
+  const canEditDivision = hasRankAtLeast('Captain');
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Effectifs</div><div class="page-sub">AGENTS ENREGISTRÉS SUR LE TERMINAL</div></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Divisions</th><th>Dernière connexion</th>${canEditDivision ? '<th></th>' : ''}</tr></thead>
+      <tbody>
+        ${list.map(o => `
+          <tr>
+            <td class="mono row-name">${escapeHtml(o.badge)}</td>
+            <td>${escapeHtml(o.name)}</td>
+            <td><span class="tag tag-blue">${escapeHtml(o.rank)}</span></td>
+            <td>${(o.divisions&&o.divisions.length) ? o.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="tag tag-grey">Non affecté</span>'}</td>
+            <td class="mono">${fmtDate(o.lastSeen)}</td>
+            ${canEditDivision ? `
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openDivisionModal('${o.badge}')">Modifier</button>
+            </td>` : ''}
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
+  `;
+}
+function openDivisionModal(badge){
+  if(!hasRankAtLeast('Captain')){
+    infoDialog("Seuls les grades Captain et au-dessus peuvent modifier les divisions.");
+    return;
+  }
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  showModal({
+    title: 'Divisions — ' + officer.name,
+    fields: [
+      { key:'divisions', label:'Divisions', type:'multiselect', options:DIVISIONS,
+        helper:"Un agent peut appartenir à plusieurs divisions." },
+    ],
+    initial: { divisions: officer.divisions || [] },
+    onSubmit: async (data) => {
+      if(!hasRankAtLeast('Captain')) return; // double vérification avant écriture
+      officer.divisions = data.divisions || [];
+      await saveKey('officers');
+      await logAction('Modification divisions', `${officer.name} (${officer.badge}) — ${(data.divisions||[]).join(', ') || 'Aucune'}`);
+      render();
+    }
+  });
+}
+
+/* ===================== LOGS ===================== */
+let logsSearch = '';
+function renderLogs(){
+  if(!isChief()){
+    return `<div class="empty-state"><div class="em-icon">▥</div>Accès réservé au grade Chief of Police.</div>`;
+  }
+  const list = [...DB.logs].filter(l => (l.action+' '+l.details+' '+l.author).toLowerCase().includes(logsSearch.toLowerCase()))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Logs</div><div class="page-sub">JOURNAL D'ACTIVITÉ DU TERMINAL · ${DB.logs.length} entrée${DB.logs.length>1?'s':''} (500 max, les plus anciennes sont purgées)</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher une action, un agent..." value="${escapeHtml(logsSearch)}" oninput="logsSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th style="width:150px;">Date / heure</th><th style="width:200px;">Action</th><th>Détails</th><th style="width:130px;">Agent</th></tr></thead>
+      <tbody>
+        ${list.map(l => `
+          <tr>
+            <td class="mono" style="white-space:nowrap;">${fmtDate(l.date)}</td>
+            <td><span class="tag tag-blue">${escapeHtml(l.action)}</span></td>
+            <td>${escapeHtml(l.details)}</td>
+            <td class="mono">${escapeHtml(l.author)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">▥</div>Aucune entrée ne correspond à cette recherche.</div>`}
+  `;
+}
+
+/* ===================== DELETE ===================== */
+const COLLECTION_LABELS = {
+  citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
+  penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
+  serviceVehicles:'Véhicule de service', organizations:'Organisation'
+};
+async function deleteEntity(collection, id){
+  const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');
+  if(!ok) return;
+  const backup = DB[collection];
+  DB[collection] = DB[collection].filter(x => x.id !== id);
+  const saved = await saveKey(collection);
+  if(!saved){
+    DB[collection] = backup; // annule la suppression locale : l'écriture en base a échoué
+    render();
+    await infoDialog("La suppression n'a pas pu être enregistrée (erreur de connexion au stockage). L'entrée n'a pas été supprimée — réessaie dans un instant.");
+    return;
+  }
+  await logAction('Suppression', `${COLLECTION_LABELS[collection] || collection} — ID ${id}`);
+  render();
+}
+
+/* ===================== INIT ===================== */
+async function init(){
+  await loadAll();
+  const sess = await loadSession();
+  tickClock();
+  if(sess){
+    SESSION = sess;
+    enterApp();
+  }
+}
+init();
+</script>
+</body>
+</html>

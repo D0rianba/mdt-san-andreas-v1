@@ -387,6 +387,28 @@
   .pubdoc-evidence{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;}
   .pubdoc-evidence img{width:90px;height:90px;object-fit:cover;border-radius:4px;border:1px solid #e2e5ea;}
   .pubdoc-notfound{max-width:520px;margin:80px auto;text-align:center;color:#3a4250;}
+
+  /* ===== ORGANIGRAMME ===== */
+  .orgchart-wrap{overflow-x:auto;padding:10px 4px 30px;}
+  .orgchart{display:flex;flex-direction:column;align-items:center;min-width:max-content;}
+  .orgchart-tier{display:flex;flex-direction:column;align-items:center;width:100%;}
+  .orgchart-tier-label{font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-faint);margin:14px 0 8px;}
+  .orgchart-connector{width:1px;height:16px;background:var(--border);}
+  .orgchart-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;position:relative;padding-top:16px;}
+  .orgchart-row::before{content:"";position:absolute;top:0;left:50%;width:1px;height:16px;background:var(--border);}
+  .orgchart-card{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;min-width:160px;text-align:center;}
+  .orgchart-card.vacant{border-style:dashed;opacity:0.55;}
+  .orgchart-card .oc-rank{font-family:var(--font-mono);font-size:10px;letter-spacing:0.6px;text-transform:uppercase;color:var(--amber);margin-bottom:4px;}
+  .orgchart-card .oc-name{font-size:13.5px;color:var(--text);font-weight:600;}
+  .orgchart-card .oc-badge{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .orgchart-card .oc-divisions{margin-top:6px;display:flex;gap:3px;flex-wrap:wrap;justify-content:center;}
+  .orgchart-divisions-block{margin-top:36px;padding-top:22px;border-top:1px dashed var(--border);width:100%;}
+  .orgchart-div-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+  .orgchart-div-card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px 14px;}
+  .orgchart-div-card .odc-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .orgchart-div-card .odc-officer{font-size:12.5px;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border-soft);}
+  .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
+  .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
 </style>
 </head>
 <body>
@@ -497,6 +519,7 @@
         <div class="nav-section-label">Terminal</div>
         <div class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')"><span class="nav-icon">▣</span> Accueil</div>
         <div class="nav-item" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> Évènements <span class="nav-count" id="count-events">0</span></div>
+        <div class="nav-item" data-page="orgchart" onclick="goPage('orgchart')"><span class="nav-icon">🗂</span> Organigramme</div>
         <div class="nav-section-label">Patrouille</div>
         <div class="nav-item" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> Dispatch <span class="nav-count" id="count-dispatch">0</span></div>
         <div class="nav-item" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> Véhicules Service <span class="nav-count" id="count-serviceVehicles">0</span></div>
@@ -511,8 +534,8 @@
         <div class="nav-item" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
         <div class="nav-item" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
         <div class="nav-item" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
-        <div class="nav-section-label">Service</div>
-        <div class="nav-item" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
+        <div class="nav-section-label" id="nav-section-roster">Service</div>
+        <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
         <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> Rapports <span class="nav-count" id="count-detectiveReports">0</span></div>
         <div class="nav-section-label" id="nav-section-logs">Logs</div>
@@ -1012,6 +1035,9 @@ function enterApp(){
   const detectiveAllowed = hasDetectiveAccess();
   document.getElementById('nav-section-detective').style.display = detectiveAllowed ? 'block' : 'none';
   document.getElementById('nav-item-detectiveReports').style.display = detectiveAllowed ? 'flex' : 'none';
+  const rosterAllowed = hasRankAtLeast('Captain');
+  document.getElementById('nav-section-roster').style.display = rosterAllowed ? 'block' : 'none';
+  document.getElementById('nav-item-roster').style.display = rosterAllowed ? 'flex' : 'none';
   const logsAllowed = isChief();
   document.getElementById('nav-section-logs').style.display = logsAllowed ? 'block' : 'none';
   document.getElementById('nav-item-logs').style.display = logsAllowed ? 'flex' : 'none';
@@ -1025,6 +1051,10 @@ function enterApp(){
 
 /* ===================== NAV ===================== */
 function goPage(page){
+  if(page === 'roster' && !hasRankAtLeast('Captain')){
+    infoDialog("Accès réservé aux grades Captain et au-dessus.");
+    page = 'dashboard';
+  }
   if(page === 'detectiveReports' && !hasDetectiveAccess()){
     infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
     page = 'dashboard';
@@ -1408,6 +1438,7 @@ function render(){
   }
   if(currentPage === 'dashboard') c.innerHTML = renderDashboard();
   else if(currentPage === 'events') c.innerHTML = renderEvents();
+  else if(currentPage === 'orgchart') c.innerHTML = renderOrgChart();
   else if(currentPage === 'dispatch') c.innerHTML = renderDispatch();
   else if(currentPage === 'serviceVehicles') c.innerHTML = renderServiceVehicles();
   else if(currentPage === 'citizens') c.innerHTML = renderCitizens();
@@ -4221,6 +4252,59 @@ function renderRoster(){
           </tr>`).join('')}
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
+  `;
+}
+function renderOrgChart(){
+  const officersByRank = {};
+  DB.officers.forEach(o => {
+    const r = o.rank || 'Rookie';
+    (officersByRank[r] = officersByRank[r] || []).push(o);
+  });
+  const tiers = [...RANK_ORDER].reverse().filter(r => officersByRank[r] && officersByRank[r].length);
+
+  const tierHtml = tiers.map(rank => {
+    const officers = [...officersByRank[rank]].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    return `
+      <div class="orgchart-tier">
+        <div class="orgchart-tier-label">${escapeHtml(rank)}</div>
+        <div class="orgchart-row">
+          ${officers.map(o => `
+            <div class="orgchart-card">
+              <div class="oc-rank">${escapeHtml(o.rank)}</div>
+              <div class="oc-name">${escapeHtml(o.name)}</div>
+              <div class="oc-badge">Matricule ${escapeHtml(o.badge)}</div>
+              ${(o.divisions && o.divisions.length) ? `<div class="oc-divisions">${o.divisions.map(d => `<span class="tag tag-amber" style="font-size:10px;">${escapeHtml(d)}</span>`).join('')}</div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  const divisionsHtml = DIVISIONS.map(div => {
+    const members = DB.officers.filter(o => o.divisions && o.divisions.includes(div))
+      .sort((a,b) => RANK_ORDER.indexOf(b.rank) - RANK_ORDER.indexOf(a.rank));
+    return `
+      <div class="orgchart-div-card">
+        <div class="odc-title">⌘ ${escapeHtml(div)}</div>
+        ${members.length ? members.map(o => `<div class="odc-officer">${escapeHtml(o.rank)} — ${escapeHtml(o.name)} <span class="mono" style="color:var(--text-faint);">[${escapeHtml(o.badge)}]</span></div>`).join('') : `<div class="odc-empty">Aucun membre affecté</div>`}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Organigramme</div><div class="page-sub">HIÉRARCHIE ET DIVISIONS DU DÉPARTEMENT</div></div>
+    </div>
+    ${tiers.length ? `
+    <div class="orgchart-wrap">
+      <div class="orgchart">
+        ${tierHtml}
+      </div>
+    </div>` : `<div class="empty-state"><div class="em-icon">🗂</div>Aucun agent enregistré.</div>`}
+    <div class="orgchart-divisions-block">
+      <div class="orgchart-tier-label" style="margin-bottom:14px;">Répartition par division</div>
+      <div class="orgchart-div-grid">
+        ${divisionsHtml}
+      </div>
+    </div>
   `;
 }
 function openDivisionModal(badge){

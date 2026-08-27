@@ -42,7 +42,7 @@
   }
 
   /* ===== LOGIN ===== */
-  #login-screen{
+  #login-screen, #force-password-screen{
     height:100%;display:flex;align-items:center;justify-content:center;
     background:
       radial-gradient(ellipse at 50% 0%, rgba(76,141,255,0.06), transparent 60%),
@@ -408,7 +408,7 @@
             <label>Matricule</label>
             <input id="login-badge" type="text" placeholder="Ex. 1042" maxlength="10">
           </div>
-          <div class="field">
+          <div class="field" id="login-rank-field">
             <label>Grade</label>
             <select id="login-rank">
               <option>Rookie</option>
@@ -428,13 +428,42 @@
             </select>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="login-name-field">
           <label>Nom complet</label>
           <input id="login-name" type="text" placeholder="Ex. J. Rivera">
         </div>
+        <div class="field" id="login-password-field" style="display:none;">
+          <label>Mot de passe</label>
+          <input id="login-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin();">
+        </div>
         <button class="btn btn-primary btn-full" onclick="doLogin()">Se connecter au terminal</button>
         <div class="login-foot" id="login-error"></div>
+        <div class="login-foot" id="login-mode-note"></div>
         <div class="login-foot">TOUTE CONSULTATION EST JOURNALISÉE · LSPD</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CHANGEMENT DE MOT DE PASSE OBLIGATOIRE (1ère connexion / après réinit. admin) ============ -->
+  <div id="force-password-screen" style="display:none;">
+    <div class="login-box">
+      <div class="login-head">
+        <div class="badge-star">SA</div>
+        <h1>Nouveau mot de passe</h1>
+        <p>PREMIÈRE CONNEXION · SÉCURISATION DU COMPTE REQUISE</p>
+      </div>
+      <div class="login-body">
+        <div class="field">
+          <label>Nouveau mot de passe</label>
+          <input id="fpw-new" type="password" placeholder="6 caractères minimum">
+        </div>
+        <div class="field">
+          <label>Confirmer le mot de passe</label>
+          <input id="fpw-confirm" type="password" placeholder="Ressaisissez le mot de passe" onkeydown="if(event.key==='Enter')submitForcedPasswordChange();">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="submitForcedPasswordChange()">Valider et continuer</button>
+        <div class="login-foot" id="fpw-error"></div>
+        <div class="login-foot">CE MOT DE PASSE TEMPORAIRE DOIT ÊTRE REMPLACÉ AVANT TOUT ACCÈS AU TERMINAL</div>
       </div>
     </div>
   </div>
@@ -449,7 +478,8 @@
       <div class="tb-clock" id="tb-clock">--:--:--</div>
       <div class="tb-sep"></div>
       <div class="tb-user"><span class="status-dot"></span><span id="tb-user-name">—</span></div>
-      <button class="btn btn-sm" style="margin-left:10px;" onclick="doLogout()">Déconnexion</button>
+      <button class="btn btn-sm" id="tb-changepw-btn" style="margin-left:10px;display:none;" onclick="openChangePasswordModal()">Mot de passe</button>
+      <button class="btn btn-sm" style="margin-left:6px;" onclick="doLogout()">Déconnexion</button>
     </div>
 
     <div id="ticker-bar">
@@ -486,6 +516,8 @@
         <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> Rapports <span class="nav-count" id="count-detectiveReports">0</span></div>
         <div class="nav-section-label" id="nav-section-logs">Logs</div>
         <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">▥</span> Logs <span class="nav-count" id="count-logs">0</span></div>
+        <div class="nav-section-label" id="nav-section-admin">Administration</div>
+        <div class="nav-item" id="nav-item-users" data-page="users" onclick="goPage('users')"><span class="nav-icon">⚙</span> Utilisateurs</div>
       </div>
 
       <div id="content"><!-- injected --></div>
@@ -513,10 +545,11 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_v83qj5erdL05SNBQGlsqcw_Gi31Fy6Y';
 
   const _supabaseConfigured = !SUPABASE_URL.includes('TON-PROJET') && !SUPABASE_ANON_KEY.includes('TA_CLE_ANON_PUBLIQUE');
+  let _sb = null; // client Supabase, aussi utilisé par l'authentification sécurisée (voir plus bas dans ce fichier)
 
   if(_supabaseConfigured && window.supabase){
     // Identifiants renseignés : le site utilise Supabase comme base partagée.
-    const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     window.storage = {
       async get(key, shared){
         if(!shared){
@@ -763,20 +796,55 @@ async function clearSession(){
   try{ await window.storage.delete(K.session, false); }catch(e){}
 }
 
-/* ===================== AUTH ===================== */
-async function doLogin(){
-  const badge = document.getElementById('login-badge').value.trim();
-  const rank = document.getElementById('login-rank').value;
-  const name = document.getElementById('login-name').value.trim();
-  const err = document.getElementById('login-error');
-  if(!badge || !name){
-    err.textContent = 'Matricule et nom requis.';
-    return;
-  }
-  err.textContent = '';
-  SESSION = { badge, rank, name, callsign: badge };
+/* ===================== AUTH =====================
+   Deux modes, selon que Supabase est configuré (voir bloc plus haut) :
+   - Configuré : authentification réelle par matricule + mot de passe, gérée
+     côté base de données (fonctions RPC Postgres). Les comptes sont créés
+     par un administrateur (page "Utilisateurs") avec un mot de passe
+     temporaire ; l'utilisateur doit le remplacer à sa première connexion.
+   - Non configuré (aperçu/local) : ancien comportement ouvert conservé tel
+     quel, pour que le fichier reste utilisable hors déploiement.
+   ================================================== */
+let _sessionPassword = null; // mot de passe en clair de la session en cours, gardé UNIQUEMENT en mémoire
+                              // (jamais enregistré dans le stockage) — sert à reconfirmer les actions
+                              // sensibles (changer son mot de passe, actions admin) sans le redemander
+                              // à chaque fois pendant que l'onglet reste ouvert.
 
-  // register/update officer in roster — les divisions et le statut de service sont préservés si déjà définis
+function isAdmin(){ return !!(SESSION && SESSION.isAdmin); }
+
+function describeAuthError(e){
+  const msg = (e && e.message) || '';
+  if(msg.includes('IDENTIFIANTS_INVALIDES')) return 'Matricule ou mot de passe incorrect.';
+  if(msg.includes('ACCES_REFUSE')) return "Ce compte n'a pas les droits administrateur.";
+  if(msg.includes('MATRICULE_EXISTANT')) return 'Ce matricule existe déjà.';
+  if(msg.includes('MOT_DE_PASSE_TROP_COURT')) return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if(msg.includes('UTILISATEUR_INTROUVABLE')) return 'Utilisateur introuvable.';
+  if(msg.includes('AUTO_SUPPRESSION_INTERDITE')) return 'Vous ne pouvez pas supprimer votre propre compte.';
+  if(msg.includes('AUTO_RETROGRADATION_INTERDITE')) return 'Vous ne pouvez pas retirer vos propres droits administrateur.';
+  return 'Une erreur est survenue : ' + msg;
+}
+
+// Ouvre une petite confirmation demandant le mot de passe de la session en cours, si on ne l'a
+// plus en mémoire (ex. après un rechargement de page). Utilisé avant toute action sensible.
+function requireSessionPassword(){
+  if(_sessionPassword) return Promise.resolve(_sessionPassword);
+  return new Promise((resolve) => {
+    showModal({
+      title: 'Confirmation requise',
+      fields: [{ key:'password', label:'Votre mot de passe', type:'password', placeholder:'Ressaisissez votre mot de passe' }],
+      submitLabel: 'Confirmer',
+      onSubmit: async (data) => {
+        _sessionPassword = data.password;
+        resolve(data.password);
+      }
+    });
+  });
+}
+
+// Enregistre/actualise la fiche de l'agent dans les Effectifs, sans toucher aux
+// divisions/statut de service déjà définis.
+async function syncOfficerRecord(){
+  const { badge, rank, name } = SESSION;
   const existingIdx = DB.officers.findIndex(o => o.badge === badge);
   const existingDivisions = existingIdx >= 0 ? DB.officers[existingIdx].divisions : null;
   const existingDutyStatus = existingIdx >= 0 ? DB.officers[existingIdx].dutyStatus : null;
@@ -790,17 +858,112 @@ async function doLogin(){
   if(existingIdx >= 0) DB.officers[existingIdx] = officerRecord;
   else DB.officers.push(officerRecord);
   await saveKey('officers');
-  await saveSession(SESSION);
-  await logAction('Connexion', `${rank} ${name} (matricule ${badge})`);
+}
 
-  enterApp();
+async function doLogin(){
+  const badge = document.getElementById('login-badge').value.trim();
+  const err = document.getElementById('login-error');
+  err.textContent = '';
+
+  if(_supabaseConfigured){
+    const password = document.getElementById('login-password').value;
+    if(!badge || !password){
+      err.textContent = 'Matricule et mot de passe requis.';
+      return;
+    }
+    try{
+      const { data, error } = await _sb.rpc('mdt_login', { p_matricule: badge, p_password: password });
+      if(error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if(!row){ err.textContent = 'Matricule ou mot de passe incorrect.'; return; }
+      _sessionPassword = password;
+      SESSION = { badge: row.matricule, rank: row.rank, name: row.name, callsign: row.matricule, isAdmin: !!row.is_admin, mustChangePassword: !!row.must_change_password };
+      await syncOfficerRecord();
+      await saveSession(SESSION);
+      await logAction('Connexion', `${SESSION.rank} ${SESSION.name} (matricule ${badge})`);
+      if(SESSION.mustChangePassword){ showForcePasswordScreen(); return; }
+      enterApp();
+    }catch(e){
+      err.textContent = describeAuthError(e);
+    }
+  } else {
+    // Mode local/aperçu sans Supabase configuré : ancien comportement ouvert (non sécurisé),
+    // conservé pour que le fichier reste utilisable hors déploiement.
+    const rank = document.getElementById('login-rank').value;
+    const name = document.getElementById('login-name').value.trim();
+    if(!badge || !name){
+      err.textContent = 'Matricule et nom requis.';
+      return;
+    }
+    SESSION = { badge, rank, name, callsign: badge, isAdmin:false, mustChangePassword:false };
+    await syncOfficerRecord();
+    await saveSession(SESSION);
+    await logAction('Connexion', `${rank} ${name} (matricule ${badge})`);
+    enterApp();
+  }
+}
+
+function showForcePasswordScreen(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('force-password-screen').style.display = 'flex';
+  document.getElementById('fpw-new').value = '';
+  document.getElementById('fpw-confirm').value = '';
+  document.getElementById('fpw-error').textContent = '';
+}
+
+async function submitForcedPasswordChange(){
+  const p1 = document.getElementById('fpw-new').value;
+  const p2 = document.getElementById('fpw-confirm').value;
+  const err = document.getElementById('fpw-error');
+  if(p1.length < 6){ err.textContent = 'Le mot de passe doit contenir au moins 6 caractères.'; return; }
+  if(p1 !== p2){ err.textContent = 'Les deux mots de passe ne correspondent pas.'; return; }
+  try{
+    const { error } = await _sb.rpc('mdt_change_password', { p_matricule: SESSION.badge, p_current_password: _sessionPassword, p_new_password: p1 });
+    if(error) throw error;
+    _sessionPassword = p1;
+    SESSION.mustChangePassword = false;
+    await saveSession(SESSION);
+    await logAction('Changement de mot de passe', 'Première connexion — mot de passe défini');
+    document.getElementById('force-password-screen').style.display = 'none';
+    enterApp();
+  }catch(e){
+    err.textContent = describeAuthError(e);
+  }
+}
+
+async function openChangePasswordModal(){
+  const password = await requireSessionPassword();
+  showModal({
+    title: 'Changer mon mot de passe',
+    fields: [
+      { key:'newPassword', label:'Nouveau mot de passe', type:'password' },
+      { key:'confirmPassword', label:'Confirmer le mot de passe', type:'password' }
+    ],
+    submitLabel: 'Valider',
+    onSubmit: async (data) => {
+      if(data.newPassword.length < 6){ await infoDialog('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+      if(data.newPassword !== data.confirmPassword){ await infoDialog('Les deux mots de passe ne correspondent pas.'); return; }
+      try{
+        const { error } = await _sb.rpc('mdt_change_password', { p_matricule: SESSION.badge, p_current_password: password, p_new_password: data.newPassword });
+        if(error) throw error;
+        _sessionPassword = data.newPassword;
+        await infoDialog('Mot de passe mis à jour.');
+      }catch(e){
+        await infoDialog(describeAuthError(e));
+      }
+    }
+  });
 }
 
 async function doLogout(){
   SESSION = null;
+  _sessionPassword = null;
   await clearSession();
   document.getElementById('shell').style.display = 'none';
+  document.getElementById('force-password-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
+  const pwField = document.getElementById('login-password');
+  if(pwField) pwField.value = '';
 }
 
 function enterApp(){
@@ -817,6 +980,10 @@ function enterApp(){
   const logsAllowed = isChief();
   document.getElementById('nav-section-logs').style.display = logsAllowed ? 'block' : 'none';
   document.getElementById('nav-item-logs').style.display = logsAllowed ? 'flex' : 'none';
+  const adminAllowed = isAdmin();
+  document.getElementById('nav-section-admin').style.display = adminAllowed ? 'block' : 'none';
+  document.getElementById('nav-item-users').style.display = adminAllowed ? 'flex' : 'none';
+  document.getElementById('tb-changepw-btn').style.display = _supabaseConfigured ? 'inline-flex' : 'none';
   updateCounts();
   goPage('dashboard');
 }
@@ -831,8 +998,13 @@ function goPage(page){
     infoDialog("Accès réservé au grade Chief of Police.");
     page = 'dashboard';
   }
+  if(page === 'users' && !isAdmin()){
+    infoDialog("Accès réservé aux administrateurs.");
+    page = 'dashboard';
+  }
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  if(page === 'users') loadAdminUsers(); // asynchrone : réaffiche la page une fois la liste reçue
   render();
 }
 
@@ -1155,7 +1327,7 @@ function confirmDialog(message){
     backdrop.innerHTML = `
       <div class="modal" style="width:380px;">
         <div class="modal-body" style="padding-top:22px;">
-          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;">${escapeHtml(message)}</p>
+          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;white-space:pre-line;">${escapeHtml(message)}</p>
         </div>
         <div class="modal-foot">
           <button class="btn" id="confirm-cancel-btn">Annuler</button>
@@ -1178,7 +1350,7 @@ function infoDialog(message){
     backdrop.innerHTML = `
       <div class="modal" style="width:380px;">
         <div class="modal-body" style="padding-top:22px;">
-          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;">${escapeHtml(message)}</p>
+          <p style="margin:0;color:var(--text);font-size:14px;line-height:1.5;white-space:pre-line;">${escapeHtml(message)}</p>
         </div>
         <div class="modal-foot">
           <button class="btn btn-primary" id="info-ok-btn">OK</button>
@@ -1215,6 +1387,7 @@ function render(){
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
   else if(currentPage === 'logs') c.innerHTML = renderLogs();
+  else if(currentPage === 'users') c.innerHTML = renderUsers();
   updateCounts();
   renderTicker();
 }
@@ -4006,6 +4179,161 @@ function renderLogs(){
   `;
 }
 
+/* ===================== UTILISATEURS (ADMIN) =====================
+   Gère les comptes de connexion (matricule + mot de passe), stockés côté
+   Supabase dans une table dédiée protégée par RLS, jamais dans kv_store.
+   Réservé aux comptes marqués administrateur (indépendant du grade).
+   ================================================================== */
+let adminUsersList = null; // null = pas encore chargé pour cette page/session
+
+function generateTempPassword(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let out = '';
+  for(let i=0;i<10;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+
+async function loadAdminUsers(){
+  if(!_supabaseConfigured || !isAdmin()) return;
+  try{
+    const password = await requireSessionPassword();
+    const { data, error } = await _sb.rpc('mdt_admin_list_users', { p_admin_matricule: SESSION.badge, p_admin_password: password });
+    if(error) throw error;
+    adminUsersList = data || [];
+  }catch(e){
+    adminUsersList = [];
+    await infoDialog(describeAuthError(e));
+  }
+  if(currentPage === 'users') render();
+}
+
+function renderUsers(){
+  if(!isAdmin()) return `<div class="empty-state"><div class="em-icon">⚙</div>Accès réservé aux administrateurs.</div>`;
+  if(!_supabaseConfigured) return `<div class="empty-state"><div class="em-icon">⚙</div>La gestion des utilisateurs nécessite Supabase configuré (voir DEPLOIEMENT.md).</div>`;
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Utilisateurs</div><div class="page-sub">GESTION DES ACCÈS AU TERMINAL</div></div>
+      <button class="btn btn-primary" onclick="openCreateUserModal()">+ Nouvel utilisateur</button>
+    </div>
+    ${adminUsersList === null ? `<div class="empty-state">Chargement…</div>` :
+      adminUsersList.length ? `
+      <table>
+        <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Droits</th><th>Mot de passe</th><th></th></tr></thead>
+        <tbody>
+          ${adminUsersList.map(u => `
+            <tr>
+              <td class="mono row-name">${escapeHtml(u.matricule)}</td>
+              <td>${escapeHtml(u.name)}</td>
+              <td><span class="tag tag-blue">${escapeHtml(u.rank)}</span></td>
+              <td>${u.is_admin ? '<span class="tag tag-amber">Administrateur</span>' : '<span class="tag tag-grey">Agent</span>'}</td>
+              <td>${u.must_change_password ? '<span class="tag tag-red">Temporaire</span>' : '<span class="tag tag-green">Définitif</span>'}</td>
+              <td class="row-actions">
+                <button class="icon-btn" onclick="openResetPasswordModal('${escapeHtml(u.matricule)}')">Réinit. mdp</button>
+                <button class="icon-btn" onclick="toggleAdminUser('${escapeHtml(u.matricule)}', ${u.is_admin ? 'true' : 'false'})">${u.is_admin ? 'Retirer admin' : 'Rendre admin'}</button>
+                <button class="icon-btn danger" onclick="deleteAdminUser('${escapeHtml(u.matricule)}')">Suppr.</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>` : `<div class="empty-state">Aucun utilisateur enregistré.</div>`}
+  `;
+}
+
+function openCreateUserModal(){
+  const tempPassword = generateTempPassword();
+  showModal({
+    title: 'Nouvel utilisateur',
+    fields: [
+      { key:'matricule', label:'Matricule', placeholder:'Ex. 1042' },
+      { key:'name', label:'Nom complet', placeholder:'Ex. J. Rivera' },
+      { key:'rank', label:'Grade', type:'select', options:RANK_ORDER },
+      { key:'isAdmin', label:'Droits administrateur', type:'select', options:[{value:'non',label:'Non'},{value:'oui',label:'Oui'}] },
+      { key:'tempPassword', label:'Mot de passe temporaire', placeholder:'Communiqué à l\u2019agent' },
+    ],
+    initial: { rank:'Police Officer I', isAdmin:'non', tempPassword },
+    submitLabel: 'Créer',
+    onSubmit: async (data) => {
+      if(!data.matricule || !data.name){ await infoDialog('Matricule et nom sont requis.'); return; }
+      if(!data.tempPassword || data.tempPassword.length < 6){ await infoDialog('Le mot de passe temporaire doit contenir au moins 6 caractères.'); return; }
+      try{
+        const adminPassword = await requireSessionPassword();
+        const { error } = await _sb.rpc('mdt_admin_create_user', {
+          p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+          p_new_matricule: data.matricule, p_temp_password: data.tempPassword,
+          p_name: data.name, p_rank: data.rank, p_is_admin: data.isAdmin === 'oui'
+        });
+        if(error) throw error;
+        await logAction('Création utilisateur', `Matricule ${data.matricule} — ${data.name} (${data.rank})`);
+        await infoDialog(`Compte créé. Communiquez ce mot de passe temporaire à l'agent :\n\n${data.tempPassword}\n\nIl devra le remplacer à sa première connexion.`);
+        await loadAdminUsers();
+      }catch(e){
+        await infoDialog(describeAuthError(e));
+      }
+    }
+  });
+}
+
+function openResetPasswordModal(matricule){
+  const tempPassword = generateTempPassword();
+  showModal({
+    title: 'Réinitialiser le mot de passe — ' + matricule,
+    fields: [{ key:'tempPassword', label:'Nouveau mot de passe temporaire', placeholder:'Communiqué à l\u2019agent' }],
+    initial: { tempPassword },
+    submitLabel: 'Réinitialiser',
+    onSubmit: async (data) => {
+      if(!data.tempPassword || data.tempPassword.length < 6){ await infoDialog('Le mot de passe temporaire doit contenir au moins 6 caractères.'); return; }
+      try{
+        const adminPassword = await requireSessionPassword();
+        const { error } = await _sb.rpc('mdt_admin_reset_password', {
+          p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+          p_target_matricule: matricule, p_temp_password: data.tempPassword
+        });
+        if(error) throw error;
+        await logAction('Réinitialisation mot de passe', `Matricule ${matricule}`);
+        await infoDialog(`Mot de passe temporaire pour ${matricule} :\n\n${data.tempPassword}\n\nL'agent devra le remplacer à sa prochaine connexion.`);
+        await loadAdminUsers();
+      }catch(e){
+        await infoDialog(describeAuthError(e));
+      }
+    }
+  });
+}
+
+async function toggleAdminUser(matricule, currentlyAdmin){
+  const ok = await confirmDialog(currentlyAdmin
+    ? `Retirer les droits administrateur à ${matricule} ?`
+    : `Donner les droits administrateur à ${matricule} ?`);
+  if(!ok) return;
+  try{
+    const adminPassword = await requireSessionPassword();
+    const { error } = await _sb.rpc('mdt_admin_set_is_admin', {
+      p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+      p_target_matricule: matricule, p_is_admin: !currentlyAdmin
+    });
+    if(error) throw error;
+    await logAction('Modification droits admin', `Matricule ${matricule} — ${!currentlyAdmin ? 'promu admin' : 'droits admin retirés'}`);
+    await loadAdminUsers();
+  }catch(e){
+    await infoDialog(describeAuthError(e));
+  }
+}
+
+async function deleteAdminUser(matricule){
+  const ok = await confirmDialog(`Supprimer définitivement le compte ${matricule} ? Cette action est irréversible.`);
+  if(!ok) return;
+  try{
+    const adminPassword = await requireSessionPassword();
+    const { error } = await _sb.rpc('mdt_admin_delete_user', {
+      p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+      p_target_matricule: matricule
+    });
+    if(error) throw error;
+    await logAction('Suppression utilisateur', `Matricule ${matricule}`);
+    await loadAdminUsers();
+  }catch(e){
+    await infoDialog(describeAuthError(e));
+  }
+}
+
 /* ===================== DELETE ===================== */
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
@@ -4422,10 +4750,21 @@ async function init(){
     renderPublicDetectiveReport(publicDetectiveId);
     return; // pas de connexion nécessaire pour consulter un rapport d'enquête public
   }
+  // Bascule le formulaire de connexion : matricule + mot de passe si Supabase est
+  // configuré (authentification réelle), sinon l'ancien formulaire ouvert (matricule + nom).
+  document.getElementById('login-password-field').style.display = _supabaseConfigured ? 'block' : 'none';
+  document.getElementById('login-rank-field').style.display = _supabaseConfigured ? 'none' : 'block';
+  document.getElementById('login-name-field').style.display = _supabaseConfigured ? 'none' : 'block';
+  document.getElementById('login-mode-note').textContent = _supabaseConfigured ? '' : 'MODE LOCAL — CONNEXION NON SÉCURISÉE (configurez Supabase)';
+
   await loadAll();
   const sess = await loadSession();
   tickClock();
-  if(sess){
+  // Si une session a été interrompue juste après une connexion nécessitant un changement de
+  // mot de passe (mdp temporaire non encore remplacé), on ne la restaure pas automatiquement :
+  // le mot de passe en clair n'est plus en mémoire à ce stade, donc on redemande une connexion
+  // classique plutôt que d'afficher un écran de changement de mot de passe impossible à valider.
+  if(sess && !sess.mustChangePassword){
     SESSION = sess;
     enterApp();
   }

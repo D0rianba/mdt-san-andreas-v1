@@ -680,7 +680,7 @@ const DEFAULT_RANKS = [
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{}, sectionAccess:{} };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{} };
 // Liste des sections du menu configurables depuis Paramètres > Gestion Section. L'Accueil en est
 // volontairement exclu : c'est la page de repli utilisée partout (connexion, accès refusé...),
 // elle doit donc rester accessible à tout le monde pour éviter tout blocage.
@@ -4695,6 +4695,11 @@ function divisionIconHtml(div){
   const url = DB.settings.divisionLogos && DB.settings.divisionLogos[div];
   return url ? `<span class="odc-icon"><img src="${escapeHtml(url)}"></span>` : `<span class="odc-icon">⌘</span>`;
 }
+// Icône d'un grade dans l'organigramme : logo personnalisé (Paramètres > Grades) si défini, rien sinon.
+function rankIconHtml(rank){
+  const url = DB.settings.rankLogos && DB.settings.rankLogos[rank];
+  return url ? `<span class="odc-icon"><img src="${escapeHtml(url)}"></span>` : '';
+}
 function renderOrgChart(){
   const officersByRank = {};
   DB.officers.forEach(o => {
@@ -4707,7 +4712,7 @@ function renderOrgChart(){
     const officers = [...officersByRank[rank]].sort((a,b) => (a.name||'').localeCompare(b.name||''));
     return `
       <div class="orgchart-tier">
-        <div class="orgchart-tier-label">${escapeHtml(rank)}</div>
+        <div class="orgchart-tier-label" style="display:flex;align-items:center;justify-content:center;gap:6px;">${rankIconHtml(rank)}${escapeHtml(rank)}</div>
         <div class="orgchart-row">
           ${officers.map(o => `
             <div class="orgchart-card">
@@ -5161,15 +5166,20 @@ function renderSettingsGradesTab(){
     const holders = DB.officers.filter(o => o.rank === rank).length;
     const isTop = dispIdx === 0;
     const isBottom = dispIdx === displayRanks.length - 1;
+    const logoUrl = DB.settings.rankLogos && DB.settings.rankLogos[rank];
+    const logoPreview = logoUrl ? `<img src="${escapeHtml(logoUrl)}">` : '—';
     return `
       <tr>
         <td class="mono" style="color:var(--text-faint);">${dispIdx+1}</td>
+        <td><div class="settings-logo-preview" style="width:30px;height:30px;border-radius:6px;font-size:11px;">${logoPreview}</div></td>
         <td class="row-name">${escapeHtml(rank)}</td>
         <td>${holders ? `<span class="tag tag-blue">${holders} agent${holders>1?'s':''}</span>` : '<span class="tag tag-grey">Aucun</span>'}</td>
         <td class="row-actions">
           <button class="icon-btn" ${isTop?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','up')" title="Monter dans la hiérarchie">↑</button>
           <button class="icon-btn" ${isBottom?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','down')" title="Descendre dans la hiérarchie">↓</button>
           <button class="icon-btn" onclick="openRenameRankModal('${escapeHtml(rank)}')">Renommer</button>
+          <button class="icon-btn" onclick="openRankLogoModal('${escapeHtml(rank)}')">Logo</button>
+          ${logoUrl ? `<button class="icon-btn" onclick="resetRankLogo('${escapeHtml(rank)}')">Sans logo</button>` : ''}
           <button class="icon-btn danger" onclick="deleteRank('${escapeHtml(rank)}')">Suppr.</button>
         </td>
       </tr>`;
@@ -5181,9 +5191,9 @@ function renderSettingsGradesTab(){
   return `
     <div class="settings-section">
       <div class="settings-section-title">Grades du service</div>
-      <div class="settings-section-sub">Ordre, renommage, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
+      <div class="settings-section-sub">Ordre, renommage, logo, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
       <table>
-        <thead><tr><th style="width:36px;"></th><th>Grade</th><th>Effectif</th><th></th></tr></thead>
+        <thead><tr><th style="width:36px;"></th><th style="width:44px;"></th><th>Grade</th><th>Effectif</th><th></th></tr></thead>
         <tbody>${rankRows}</tbody>
       </table>
       <button class="btn" style="margin-top:12px;" onclick="openAddRankModal()">+ Ajouter un grade</button>
@@ -5353,6 +5363,15 @@ async function renameRank(oldName, newName){
   }
   if(DB.settings.boloMinRank === oldName) DB.settings.boloMinRank = newName;
   if(DB.settings.captainTierMinRank === oldName) DB.settings.captainTierMinRank = newName;
+  if(DB.settings.rankLogos && DB.settings.rankLogos[oldName]){
+    DB.settings.rankLogos[newName] = DB.settings.rankLogos[oldName];
+    delete DB.settings.rankLogos[oldName];
+  }
+  if(DB.settings.sectionAccess){
+    Object.keys(DB.settings.sectionAccess).forEach(k => {
+      if(DB.settings.sectionAccess[k] === oldName) DB.settings.sectionAccess[k] = newName;
+    });
+  }
   await saveKey('ranks');
   await saveKey('officers');
   await saveKey('settings');
@@ -5416,12 +5435,18 @@ async function deleteRank(rank){
     infoDialog("Ce grade est utilisé comme seuil d'accès dans les Paramètres. Change ce seuil avant de le supprimer.");
     return;
   }
+  if(DB.settings.sectionAccess && Object.values(DB.settings.sectionAccess).includes(rank)){
+    infoDialog("Ce grade est utilisé comme seuil de visibilité d'une section (Gestion Section). Change ce seuil avant de le supprimer.");
+    return;
+  }
   const ok = await confirmDialog(`Supprimer le grade "${rank}" ? Cette action est irréversible.`);
   if(!ok) return;
   const idx = RANK_ORDER.indexOf(rank);
   if(idx === -1) return;
   RANK_ORDER.splice(idx, 1);
+  if(DB.settings.rankLogos) delete DB.settings.rankLogos[rank];
   await saveKey('ranks');
+  await saveKey('settings');
   await logAction('Suppression grade', `Grade "${rank}" supprimé`);
   render();
 }
@@ -5536,6 +5561,34 @@ async function resetDivisionLogo(div){
   if(DB.settings.divisionLogos) delete DB.settings.divisionLogos[div];
   await saveKey('settings');
   await logAction('Modification logo', `Logo de la division "${div}" réinitialisé (par défaut)`);
+  render();
+}
+
+function openRankLogoModal(rank){
+  if(!isAdmin()) return;
+  if(!RANK_ORDER.includes(rank)) return;
+  showModal({
+    title: 'Logo — ' + rank,
+    fields: [{ key:'logo', label:'Image', type:'image-upload', helper:"Insigne affiché pour ce grade (ex. sur l'Organigramme). L'image est automatiquement recadrée au format carré." }],
+    initial: { logo: (DB.settings.rankLogos && DB.settings.rankLogos[rank]) || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      DB.settings.rankLogos = DB.settings.rankLogos || {};
+      if(data.logo) DB.settings.rankLogos[rank] = data.logo;
+      else delete DB.settings.rankLogos[rank];
+      await saveKey('settings');
+      await logAction('Modification logo', `Logo du grade "${rank}" mis à jour`);
+      render();
+    }
+  });
+}
+async function resetRankLogo(rank){
+  if(!isAdmin()) return;
+  const ok = await confirmDialog(`Retirer le logo du grade "${rank}" ?`);
+  if(!ok) return;
+  if(DB.settings.rankLogos) delete DB.settings.rankLogos[rank];
+  await saveKey('settings');
+  await logAction('Modification logo', `Logo du grade "${rank}" retiré`);
   render();
 }
 

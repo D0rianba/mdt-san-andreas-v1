@@ -122,6 +122,22 @@
   .tb-rank-logo{width:20px;height:20px;object-fit:contain;border-radius:4px;}
   .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
 
+  /* ===== DEFCON (barre d'alerte, toujours visible) ===== */
+  #defcon-bar{
+    height:28px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;cursor:pointer;
+    font-family:var(--font-mono);border-bottom:1px solid rgba(0,0,0,0.25);
+    background:var(--green-dim);transition:background .2s;
+  }
+  #defcon-bar.defcon-5{background:var(--green-dim);}
+  #defcon-bar.defcon-4{background:#173049;}
+  #defcon-bar.defcon-3{background:var(--amber-dim);}
+  #defcon-bar.defcon-2{background:#5A2E12;}
+  #defcon-bar.defcon-1{background:var(--red-dim);animation:defcon-pulse 1.4s infinite;}
+  @keyframes defcon-pulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.6);}}
+  .defcon-label{font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);font-weight:600;}
+  .defcon-level{font-family:var(--font-display);font-weight:800;font-size:15px;line-height:1;padding:1px 7px;border-radius:3px;background:rgba(255,255,255,0.12);color:#fff;}
+  .defcon-title{font-size:12px;letter-spacing:0.4px;color:#fff;font-weight:600;}
+
   /* ===== TICKER (signature element) ===== */
   #ticker-bar{
     height:26px;flex:none;background:#0E1319;border-bottom:1px solid var(--border-soft);
@@ -455,6 +471,20 @@
   .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
   .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
 
+  /* ===== DEFCON ===== */
+  .defcon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;max-width:1200px;}
+  .defcon-card{background:var(--panel);border:1px solid var(--border);border-top:4px solid var(--border);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;}
+  .defcon-card.dc-5{border-top-color:var(--green);}
+  .defcon-card.dc-4{border-top-color:var(--blue);}
+  .defcon-card.dc-3{border-top-color:var(--amber);}
+  .defcon-card.dc-2{border-top-color:#E5793D;}
+  .defcon-card.dc-1{border-top-color:var(--red);}
+  .defcon-card.active{background:var(--panel-2);box-shadow:0 0 0 1px var(--border-soft) inset;}
+  .defcon-card .dc-level{font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;color:var(--text-faint);margin-bottom:2px;}
+  .defcon-card .dc-title{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text);margin-bottom:10px;}
+  .defcon-card .dc-desc{font-size:12.5px;color:var(--text-dim);line-height:1.6;white-space:pre-line;flex:1;margin-bottom:14px;min-height:40px;}
+  .defcon-card .dc-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
   /* ===== MANDATS (cartes) ===== */
   .warrant-card{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;cursor:pointer;}
   .warrant-card:hover{border-color:var(--border-soft);}
@@ -583,6 +613,12 @@
       <button class="btn btn-sm" style="margin-left:6px;" onclick="doLogout()">Déconnexion</button>
     </div>
 
+    <div id="defcon-bar" onclick="goPage('defcon')">
+      <span class="defcon-label">DEFCON</span>
+      <span class="defcon-level" id="defcon-level-badge">5</span>
+      <span class="defcon-title" id="defcon-title-text">—</span>
+    </div>
+
     <div id="ticker-bar">
       <div class="ticker-label"><span class="ticker-dot"></span>BOLO / AVIS</div>
       <div class="ticker-track-wrap">
@@ -598,6 +634,7 @@
         <div class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')"><span class="nav-icon">🏠</span> Accueil</div>
         <div class="nav-item" id="nav-item-events" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> <span class="nav-label">Évènements</span> <span class="nav-count" id="count-events">0</span></div>
         <div class="nav-item" id="nav-item-orgchart" data-page="orgchart" onclick="goPage('orgchart')"><span class="nav-icon">🗂</span> <span class="nav-label">Organigramme</span></div>
+        <div class="nav-item" id="nav-item-defcon" data-page="defcon" onclick="goPage('defcon')"><span class="nav-icon">☢</span> <span class="nav-label">Defcon</span></div>
         <div class="nav-section-label">Patrouille</div>
         <div class="nav-item" id="nav-item-dispatch" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> <span class="nav-label">Dispatch</span> <span class="nav-count" id="count-dispatch">0</span></div>
         <div class="nav-item" id="nav-item-serviceVehicles" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> <span class="nav-label">Véhicules Service</span> <span class="nav-count" id="count-serviceVehicles">0</span></div>
@@ -731,20 +768,31 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{} };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null };
+// Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
+// chaque niveau est éditable (Chief of Police uniquement).
+const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
+function defaultDefcon(){
+  return {
+    active: 5,
+    descriptions: { 5:'', 4:'', 3:'', 2:'', 1:'' },
+    updatedAt: null, updatedBy: ''
+  };
+}
 let SESSION = null;
 const DEFAULT_RANKS = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{}, sectionOverrides:{} };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', defconMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{}, sectionOverrides:{} };
 // Liste des sections du menu configurables depuis Paramètres > Gestion Section. L'Accueil en est
 // volontairement exclu : c'est la page de repli utilisée partout (connexion, accès refusé...),
 // elle doit donc rester accessible à tout le monde pour éviter tout blocage.
 const SECTION_REGISTRY = [
   { key:'events', label:'Évènements', group:'Terminal', icon:'▦' },
   { key:'orgchart', label:'Organigramme', group:'Terminal', icon:'🗂' },
+  { key:'defcon', label:'Defcon', group:'Terminal', icon:'☢' },
   { key:'dispatch', label:'Dispatch', group:'Patrouille', icon:'◈' },
   { key:'serviceVehicles', label:'Véhicules Service', group:'Patrouille', icon:'🚓' },
   { key:'citizens', label:'Citoyens', group:'Base de données', icon:'☰' },
@@ -885,7 +933,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
-  ranks:'db:ranks', settings:'db:settings',
+  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon',
   session:'session:current'
 };
 
@@ -936,6 +984,16 @@ async function loadAll(){
     DB.dispatchAssignments = res && res.value ? JSON.parse(res.value) : { dispatcherBadge:'', supervisorBadge:'' };
   }catch(e){ DB.dispatchAssignments = { dispatcherBadge:'', supervisorBadge:'' }; }
 
+  // defcon : objet unique {active, descriptions, updatedAt, updatedBy}, fusionné avec les valeurs
+  // par défaut pour rester compatible si de nouveaux champs sont ajoutés plus tard.
+  try{
+    const res = await window.storage.get(K.defcon, true);
+    const loaded = res && res.value ? JSON.parse(res.value) : null;
+    DB.defcon = Object.assign(defaultDefcon(), loaded || {});
+    if(loaded) DB.defcon.descriptions = Object.assign(defaultDefcon().descriptions, loaded.descriptions || {});
+    if(!loaded) await saveKey('defcon');
+  }catch(e){ DB.defcon = defaultDefcon(); }
+
   // grades du service : liste éditable (page Administration > Paramètres), amorcée avec la
   // hiérarchie par défaut au tout premier lancement. RANK_ORDER référence ensuite ce même tableau.
   try{
@@ -971,6 +1029,7 @@ async function loadAll(){
   }
   applyBranding();
   populateLoginRankOptions();
+  applyDefconBar();
   // migration : ancien libellé de catégorie renommé
   let migrated = false;
   DB.penalCode.forEach(p => {
@@ -1089,6 +1148,17 @@ function updateTbRankLogo(){
     img.removeAttribute('src');
     img.style.display = 'none';
   }
+}
+// Met à jour la barre Defcon toujours visible (couleur + niveau + titre selon le niveau actif).
+function applyDefconBar(){
+  const bar = document.getElementById('defcon-bar');
+  if(!bar || !DB.defcon) return;
+  const level = DB.defcon.active || 5;
+  bar.className = 'defcon-' + level;
+  const badge = document.getElementById('defcon-level-badge');
+  const title = document.getElementById('defcon-title-text');
+  if(badge) badge.textContent = level;
+  if(title) title.textContent = DEFCON_TITLES[level] || '';
 }
 // Reconstruit la liste déroulante des grades de l'écran de connexion (mode local, sans Supabase)
 // à partir de la hiérarchie actuelle, pour qu'elle reste à jour si l'administrateur modifie les grades.
@@ -1776,6 +1846,7 @@ function render(){
   if(currentPage === 'dashboard') c.innerHTML = renderDashboard();
   else if(currentPage === 'events') c.innerHTML = renderEvents();
   else if(currentPage === 'orgchart') c.innerHTML = renderOrgChart();
+  else if(currentPage === 'defcon') c.innerHTML = renderDefcon();
   else if(currentPage === 'dispatch') c.innerHTML = renderDispatch();
   else if(currentPage === 'serviceVehicles') c.innerHTML = renderServiceVehicles();
   else if(currentPage === 'citizens') c.innerHTML = renderCitizens();
@@ -5131,6 +5202,77 @@ function renderOrgChart(){
     </div>
   `;
 }
+
+/* ===================== DEFCON ===================== */
+function renderDefcon(){
+  const canEditContent = isChief();
+  const canActivate = hasRankAtLeast(DB.settings.defconMinRank);
+  const d = DB.defcon || defaultDefcon();
+  const updatedByOfficer = d.updatedBy ? DB.officers.find(o => o.badge === d.updatedBy) : null;
+  const levels = [5,4,3,2,1];
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Defcon</div><div class="page-sub">NIVEAU D'ALERTE DU DÉPARTEMENT</div></div>
+    </div>
+    ${d.updatedAt ? `<div class="helper-text" style="margin-bottom:16px;">Dernier changement : ${fmtDate(d.updatedAt)}${updatedByOfficer ? ' par '+escapeHtml(updatedByOfficer.name) : (d.updatedBy ? ' par matricule '+escapeHtml(d.updatedBy) : '')}</div>` : ''}
+    <div class="defcon-grid">
+      ${levels.map(lvl => {
+        const active = d.active === lvl;
+        const desc = (d.descriptions && d.descriptions[lvl]) || '';
+        return `
+        <div class="defcon-card dc-${lvl} ${active?'active':''}">
+          <div class="dc-level">NIVEAU ${lvl}</div>
+          <div class="dc-title">${escapeHtml(DEFCON_TITLES[lvl])}</div>
+          <div class="dc-desc">${desc ? escapeHtml(desc) : '<span style="color:var(--text-faint);font-style:italic;">Aucune information renseignée.</span>'}</div>
+          <div class="dc-actions">
+            ${active ? '<span class="tag tag-green">Niveau actif</span>' : (canActivate ? `<button class="btn btn-sm" onclick="setActiveDefconLevel(${lvl})">Activer ce niveau</button>` : '')}
+            ${canEditContent ? `<button class="icon-btn" onclick="openEditDefconLevelModal(${lvl})">Modifier</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+function openEditDefconLevelModal(level){
+  if(!isChief()) return;
+  const d = DB.defcon || defaultDefcon();
+  showModal({
+    title: `Niveau ${level} — ${DEFCON_TITLES[level]}`,
+    fields: [{ key:'description', label:'Informations / consignes', type:'textarea',
+      helper:"Visible par tous les agents ayant accès à la section Defcon." }],
+    initial: { description: (d.descriptions && d.descriptions[level]) || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      if(!isChief()) return; // double vérification avant écriture
+      DB.defcon.descriptions = DB.defcon.descriptions || {};
+      DB.defcon.descriptions[level] = data.description || '';
+      await saveKey('defcon');
+      await logAction('Modification Defcon', `Informations du niveau ${level} mises à jour`);
+      render();
+    }
+  });
+}
+// Change le niveau Defcon actif — action volontairement mise en avant (confirmation, log dédié,
+// barre d'alerte permanente mise à jour immédiatement) puisqu'elle concerne tout le département.
+async function setActiveDefconLevel(level){
+  if(!hasRankAtLeast(DB.settings.defconMinRank)) return;
+  if(!DB.defcon) DB.defcon = defaultDefcon();
+  if(DB.defcon.active === level) return;
+  const ok = await confirmDialog(`Confirmer le passage en DEFCON ${level} — ${DEFCON_TITLES[level]} ?\n\nCe changement est visible immédiatement par tous les agents connectés.`);
+  if(!ok) return;
+  DB.defcon.active = level;
+  DB.defcon.updatedAt = nowISO();
+  DB.defcon.updatedBy = SESSION.badge;
+  const saved = await saveKey('defcon');
+  if(!saved){
+    await infoDialog("Le changement n'a pas pu être enregistré (erreur de stockage). Réessaie dans un instant.");
+    return;
+  }
+  await logAction('⚠ CHANGEMENT DEFCON', `Niveau ${level} — ${DEFCON_TITLES[level]}`);
+  applyDefconBar();
+  render();
+}
+
 function openDivisionModal(badge){
   if(!hasRankAtLeast(DB.settings.captainTierMinRank)){
     infoDialog(`Seuls les grades ${DB.settings.captainTierMinRank} et au-dessus peuvent modifier les divisions.`);
@@ -5565,6 +5707,7 @@ function renderSettingsGradesTab(){
 
   const boloOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.boloMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
   const captainOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.captainTierMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
+  const defconOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.defconMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
 
   return `
     <div class="settings-section">
@@ -5588,6 +5731,10 @@ function renderSettingsGradesTab(){
         <div class="field">
           <label>Modification des divisions d'un agent</label>
           <select onchange="setThreshold('captainTierMinRank', this.value)">${captainOptions}</select>
+        </div>
+        <div class="field">
+          <label>Changement du niveau Defcon actif</label>
+          <select onchange="setThreshold('defconMinRank', this.value)">${defconOptions}</select>
         </div>
       </div>
     </div>
@@ -5747,6 +5894,7 @@ async function renameRank(oldName, newName){
   }
   if(DB.settings.boloMinRank === oldName) DB.settings.boloMinRank = newName;
   if(DB.settings.captainTierMinRank === oldName) DB.settings.captainTierMinRank = newName;
+  if(DB.settings.defconMinRank === oldName) DB.settings.defconMinRank = newName;
   if(DB.settings.rankLogos && DB.settings.rankLogos[oldName]){
     DB.settings.rankLogos[newName] = DB.settings.rankLogos[oldName];
     delete DB.settings.rankLogos[oldName];
@@ -5815,7 +5963,7 @@ async function deleteRank(rank){
     infoDialog(`Ce grade est actuellement attribué à ${holders} agent${holders>1?'s':''}. Modifie leur grade avant de le supprimer.`);
     return;
   }
-  if(DB.settings.boloMinRank === rank || DB.settings.captainTierMinRank === rank){
+  if(DB.settings.boloMinRank === rank || DB.settings.captainTierMinRank === rank || DB.settings.defconMinRank === rank){
     infoDialog("Ce grade est utilisé comme seuil d'accès dans les Paramètres. Change ce seuil avant de le supprimer.");
     return;
   }

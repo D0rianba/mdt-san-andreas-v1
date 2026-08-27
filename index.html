@@ -4578,8 +4578,8 @@ function openPenalCodeModal(id){
 function renderRoster(){
   const list = [...DB.officers].sort((a,b) => new Date(b.lastSeen)-new Date(a.lastSeen));
   const canEditDivision = hasRankAtLeast(DB.settings.captainTierMinRank);
-  const canEditBadge = isAdmin();
-  const showActionsCol = canEditDivision || canEditBadge;
+  const canManageOfficer = isAdmin();
+  const showActionsCol = canEditDivision || canManageOfficer;
   return `
     <div class="page-head">
       <div><div class="page-title">Effectifs</div><div class="page-sub">AGENTS ENREGISTRÉS SUR LE TERMINAL</div></div>
@@ -4598,7 +4598,9 @@ function renderRoster(){
             ${showActionsCol ? `
             <td class="row-actions">
               ${canEditDivision ? `<button class="icon-btn" onclick="openDivisionModal('${o.badge}')">Divisions</button>` : ''}
-              ${canEditBadge ? `<button class="icon-btn" onclick="openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn" onclick="openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn" onclick="openRenameOfficerModal('${o.badge}')">Nom</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn danger" onclick="deleteOfficer('${o.badge}')">Suppr.</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
       </tbody>
@@ -4769,6 +4771,81 @@ async function changeOfficerBadge(oldBadge, newBadge){
   for(const col of toSave) await saveKey(col);
 
   await logAction('Modification matricule', `"${oldBadge}" renommé en "${newBadge}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
+  render();
+}
+
+function openRenameOfficerModal(badge){
+  if(!isAdmin()) return;
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  showModal({
+    title: 'Modifier le nom — ' + officer.badge,
+    fields: [{ key:'name', label:'Nom complet', placeholder:'Ex. J. Rivera' }],
+    initial: { name: officer.name },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => { await renameOfficerName(badge, (data.name||'').trim()); }
+  });
+}
+// Renomme le nom d'un agent. En mode Supabase, le nom sert aussi de source lors de la
+// synchronisation automatique à chaque connexion (syncOfficerRecord) — sans synchroniser le
+// compte, le changement serait donc écrasé à la prochaine connexion de l'agent concerné.
+async function renameOfficerName(badge, newName){
+  if(!isAdmin()) return;
+  if(!newName){ await infoDialog('Le nom est requis.'); return; }
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  if(newName === officer.name) return;
+
+  if(_supabaseConfigured){
+    try{
+      const adminPassword = await requireSessionPassword();
+      const { error } = await _sb.rpc('mdt_admin_update_name', {
+        p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+        p_target_matricule: badge, p_new_name: newName
+      });
+      if(error) throw error;
+    }catch(e){
+      await infoDialog(describeAuthError(e));
+      return;
+    }
+  }
+
+  const oldName = officer.name;
+  officer.name = newName;
+  await saveKey('officers');
+
+  if(SESSION && SESSION.badge === badge){
+    SESSION.name = newName;
+    await saveSession(SESSION);
+    const tbUserName = document.getElementById('tb-user-name');
+    if(tbUserName) tbUserName.textContent = SESSION.rank + ' ' + SESSION.name;
+  }
+
+  await logAction('Modification nom agent', `${badge} — "${oldName}" renommé en "${newName}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
+  render();
+}
+
+// Retire un agent des effectifs (fiche roster uniquement — ne supprime pas son compte de
+// connexion, voir la page Utilisateurs pour ça). S'il se reconnecte, sa fiche est recréée
+// automatiquement (syncOfficerRecord).
+async function deleteOfficer(badge){
+  if(!isAdmin()) return;
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  if(SESSION && SESSION.badge === badge){
+    await infoDialog("Impossible de retirer ta propre fiche des effectifs pendant que tu es connecté.");
+    return;
+  }
+  const ok = await confirmDialog(`Retirer ${officer.name} (${officer.badge}) des effectifs ?\n\nCela ne supprime pas son compte de connexion — utilise la page Utilisateurs pour ça.`);
+  if(!ok) return;
+  DB.officers = DB.officers.filter(o => o.badge !== badge);
+  if(DB.dispatchAssignments){
+    if(DB.dispatchAssignments.dispatcherBadge === badge) DB.dispatchAssignments.dispatcherBadge = '';
+    if(DB.dispatchAssignments.supervisorBadge === badge) DB.dispatchAssignments.supervisorBadge = '';
+  }
+  await saveKey('officers');
+  await saveKey('dispatchAssignments');
+  await logAction('Suppression effectif', `${officer.name} (${officer.badge})`);
   render();
 }
 

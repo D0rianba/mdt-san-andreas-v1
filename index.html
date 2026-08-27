@@ -4771,7 +4771,7 @@ function renderRoster(){
       <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Divisions</th><th>Dernière connexion</th>${showActionsCol ? '<th></th>' : ''}</tr></thead>
       <tbody>
         ${list.map(o => `
-          <tr>
+          <tr style="cursor:pointer;" onclick="openOfficerStatsModal('${o.badge}')">
             <td class="mono row-name">${escapeHtml(o.badge)}</td>
             <td>${escapeHtml(o.name)}</td>
             <td><span class="tag tag-blue">${escapeHtml(o.rank)}</span></td>
@@ -4779,15 +4779,84 @@ function renderRoster(){
             <td class="mono">${fmtDate(o.lastSeen)}</td>
             ${showActionsCol ? `
             <td class="row-actions">
-              ${canEditDivision ? `<button class="icon-btn" onclick="openDivisionModal('${o.badge}')">Divisions</button>` : ''}
-              ${canManageOfficer ? `<button class="icon-btn" onclick="openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
-              ${canManageOfficer ? `<button class="icon-btn" onclick="openRenameOfficerModal('${o.badge}')">Nom</button>` : ''}
-              ${canManageOfficer ? `<button class="icon-btn danger" onclick="deleteOfficer('${o.badge}')">Suppr.</button>` : ''}
+              ${canEditDivision ? `<button class="icon-btn" onclick="event.stopPropagation();openDivisionModal('${o.badge}')">Divisions</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openRenameOfficerModal('${o.badge}')">Nom</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn danger" onclick="event.stopPropagation();deleteOfficer('${o.badge}')">Suppr.</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
   `;
+}
+// Compte les dossiers d'une collection réalisés par un agent (matricule présent dans au moins un
+// des champs fournis), répartis en 7 derniers jours / 30 derniers jours / depuis toujours.
+function countDossiersForOfficer(collection, badge, fields){
+  const now = Date.now();
+  const weekMs = 7*24*60*60*1000, monthMs = 30*24*60*60*1000;
+  const items = (DB[collection]||[]).filter(item => fields.some(f => item[f] === badge));
+  let week = 0, month = 0;
+  items.forEach(item => {
+    const age = now - new Date(item.date).getTime();
+    if(age <= weekMs) week++;
+    if(age <= monthMs) month++;
+  });
+  return { week, month, total: items.length };
+}
+function officerDossierStats(badge){
+  return {
+    arrestReports: countDossiersForOfficer('arrestReports', badge, ['author','responsibleBadge']),
+    reports: countDossiersForOfficer('reports', badge, ['author']),
+    seizures: countDossiersForOfficer('seizures', badge, ['author']),
+    complaints: countDossiersForOfficer('complaints', badge, ['author','takenByBadge']),
+    convocations: countDossiersForOfficer('convocations', badge, ['authorBadge']),
+    ppas: countDossiersForOfficer('ppas', badge, ['author']),
+  };
+}
+function openOfficerStatsModal(badge){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  const s = officerDossierStats(badge);
+  const rows = [
+    ["Rapports d'arrestation", s.arrestReports],
+    ['Rapports', s.reports],
+    ['Saisies', s.seizures],
+    ['Plaintes', s.complaints],
+    ['Convocations', s.convocations],
+    ['PPA', s.ppas],
+  ];
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:580px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>Statistiques — ${escapeHtml(officer.name)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <span class="tag tag-blue">${escapeHtml(officer.rank)}</span>
+          <span class="mono" style="color:var(--text-faint);">Matricule ${escapeHtml(officer.badge)}</span>
+        </div>
+        <table>
+          <thead><tr><th>Catégorie</th><th>7 derniers jours</th><th>30 derniers jours</th><th>Depuis toujours</th></tr></thead>
+          <tbody>
+            ${rows.map(([label, c]) => `
+              <tr>
+                <td class="row-name">${escapeHtml(label)}</td>
+                <td class="mono">${c.week}</td>
+                <td class="mono">${c.month}</td>
+                <td class="mono">${c.total}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
 }
 // Icône d'une division dans l'organigramme : logo personnalisé (Paramètres) si défini, sinon ⌘ par défaut.
 function divisionIconHtml(div){

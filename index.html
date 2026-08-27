@@ -3170,7 +3170,10 @@ function resizeImageToSquare(file, size, quality){
         const canvas = document.createElement('canvas');
         canvas.width = size; canvas.height = size;
         canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        // Conserve la transparence des formats qui la supportent (PNG, WebP, GIF) plutôt que de
+        // l'aplatir en noir avec le JPEG, qui n'a pas de canal alpha.
+        const preserveAlpha = /image\/(png|webp|gif)/i.test(file.type);
+        resolve(preserveAlpha ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = reject;
       img.src = reader.result;

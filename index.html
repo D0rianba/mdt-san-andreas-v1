@@ -411,6 +411,8 @@
   .orgchart-div-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
   .orgchart-div-card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px 14px;}
   .orgchart-div-card .odc-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .odc-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:none;font-size:13px;}
+  .odc-icon img{width:100%;height:100%;object-fit:cover;border-radius:3px;}
   .orgchart-div-card .odc-officer{font-size:12.5px;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border-soft);}
   .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
   .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
@@ -673,7 +675,7 @@ const DEFAULT_RANKS = [
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain' };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{} };
 // Collections où le champ "author" est le matricule seul (ex-diminutif de grade retiré par migration) —
 // partagé entre la migration au chargement et le renommage de matricule (changeOfficerBadge).
 const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
@@ -4607,6 +4609,11 @@ function renderRoster(){
     </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
   `;
 }
+// Icône d'une division dans l'organigramme : logo personnalisé (Paramètres) si défini, sinon ⌘ par défaut.
+function divisionIconHtml(div){
+  const url = DB.settings.divisionLogos && DB.settings.divisionLogos[div];
+  return url ? `<span class="odc-icon"><img src="${escapeHtml(url)}"></span>` : `<span class="odc-icon">⌘</span>`;
+}
 function renderOrgChart(){
   const officersByRank = {};
   DB.officers.forEach(o => {
@@ -4637,7 +4644,7 @@ function renderOrgChart(){
       .sort((a,b) => RANK_ORDER.indexOf(b.rank) - RANK_ORDER.indexOf(a.rank));
     return `
       <div class="orgchart-div-card">
-        <div class="odc-title">⌘ ${escapeHtml(div)}</div>
+        <div class="odc-title">${divisionIconHtml(div)}${escapeHtml(div)}</div>
         ${members.length ? members.map(o => `<div class="odc-officer">${escapeHtml(o.rank)} — ${escapeHtml(o.name)} <span class="mono" style="color:var(--text-faint);">[${escapeHtml(o.badge)}]</span></div>`).join('') : `<div class="odc-empty">Aucun membre affecté</div>`}
       </div>`;
   }).join('');
@@ -5119,6 +5126,26 @@ function renderSettingsPage(){
         </div>
       </div>
     </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Logos des divisions</div>
+      <div class="settings-section-sub">Remplace l'icône ⌘ de chaque division sur la page Organigramme.</div>
+      ${DIVISIONS.map(div => {
+        const url = DB.settings.divisionLogos && DB.settings.divisionLogos[div];
+        const preview = url ? `<img src="${escapeHtml(url)}">` : '⌘';
+        return `
+        <div class="settings-logo-row" style="margin-bottom:14px;">
+          <div class="settings-logo-preview" style="width:44px;height:44px;border-radius:var(--radius);">${preview}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:var(--text);margin-bottom:6px;">${escapeHtml(div)}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="openDivisionLogoModal('${escapeHtml(div)}')">Modifier</button>
+              ${url ? `<button class="btn btn-sm" onclick="resetDivisionLogo('${escapeHtml(div)}')">Icône par défaut</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
   `;
 }
 
@@ -5305,6 +5332,34 @@ async function resetPubdocLogo(){
   DB.settings.pubdocLogoUrl = '';
   await saveKey('settings');
   await logAction('Modification logo', 'Logo des documents publics réinitialisé (par défaut)');
+  render();
+}
+
+function openDivisionLogoModal(div){
+  if(!isAdmin()) return;
+  if(!DIVISIONS.includes(div)) return;
+  showModal({
+    title: 'Logo — ' + div,
+    fields: [{ key:'logo', label:'Image', type:'image-upload', helper:"Remplace l'icône ⌘ de cette division sur la page Organigramme. L'image est automatiquement recadrée au format carré." }],
+    initial: { logo: (DB.settings.divisionLogos && DB.settings.divisionLogos[div]) || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      DB.settings.divisionLogos = DB.settings.divisionLogos || {};
+      if(data.logo) DB.settings.divisionLogos[div] = data.logo;
+      else delete DB.settings.divisionLogos[div];
+      await saveKey('settings');
+      await logAction('Modification logo', `Logo de la division "${div}" mis à jour`);
+      render();
+    }
+  });
+}
+async function resetDivisionLogo(div){
+  if(!isAdmin()) return;
+  const ok = await confirmDialog(`Revenir à l'icône par défaut pour "${div}" ?`);
+  if(!ok) return;
+  if(DB.settings.divisionLogos) delete DB.settings.divisionLogos[div];
+  await saveKey('settings');
+  await logAction('Modification logo', `Logo de la division "${div}" réinitialisé (par défaut)`);
   render();
 }
 

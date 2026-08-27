@@ -425,6 +425,10 @@
   .settings-logo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
   .settings-logo-preview{width:64px;height:64px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--panel-2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:var(--font-display);color:var(--amber);font-weight:700;}
   .settings-logo-preview img,.settings-logo-preview svg{width:100%;height:100%;object-fit:cover;}
+  .settings-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:22px;}
+  .settings-tab{padding:10px 18px;font-family:var(--font-mono);font-size:12px;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;}
+  .settings-tab:hover{color:var(--text);}
+  .settings-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
 </style>
 </head>
 <body>
@@ -534,23 +538,23 @@
       <div id="sidebar">
         <div class="nav-section-label">Terminal</div>
         <div class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')"><span class="nav-icon">▣</span> Accueil</div>
-        <div class="nav-item" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> Évènements <span class="nav-count" id="count-events">0</span></div>
-        <div class="nav-item" data-page="orgchart" onclick="goPage('orgchart')"><span class="nav-icon">🗂</span> Organigramme</div>
+        <div class="nav-item" id="nav-item-events" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> Évènements <span class="nav-count" id="count-events">0</span></div>
+        <div class="nav-item" id="nav-item-orgchart" data-page="orgchart" onclick="goPage('orgchart')"><span class="nav-icon">🗂</span> Organigramme</div>
         <div class="nav-section-label">Patrouille</div>
-        <div class="nav-item" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> Dispatch <span class="nav-count" id="count-dispatch">0</span></div>
-        <div class="nav-item" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> Véhicules Service <span class="nav-count" id="count-serviceVehicles">0</span></div>
+        <div class="nav-item" id="nav-item-dispatch" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> Dispatch <span class="nav-count" id="count-dispatch">0</span></div>
+        <div class="nav-item" id="nav-item-serviceVehicles" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> Véhicules Service <span class="nav-count" id="count-serviceVehicles">0</span></div>
         <div class="nav-section-label">Base de données</div>
-        <div class="nav-item" data-page="citizens" onclick="goPage('citizens')"><span class="nav-icon">☰</span> Citoyens <span class="nav-count" id="count-citizens">0</span></div>
-        <div class="nav-item" data-page="organizations" onclick="goPage('organizations')"><span class="nav-icon">⌘</span> Organisations / Gangs <span class="nav-count" id="count-organizations">0</span></div>
-        <div class="nav-item" data-page="warrants" onclick="goPage('warrants')"><span class="nav-icon">⚠</span> Mandats <span class="nav-count" id="count-warrants">0</span></div>
-        <div class="nav-item" data-page="penalcode" onclick="goPage('penalcode')"><span class="nav-icon">§</span> Code Pénal <span class="nav-count" id="count-penalcode">0</span></div>
+        <div class="nav-item" id="nav-item-citizens" data-page="citizens" onclick="goPage('citizens')"><span class="nav-icon">☰</span> Citoyens <span class="nav-count" id="count-citizens">0</span></div>
+        <div class="nav-item" id="nav-item-organizations" data-page="organizations" onclick="goPage('organizations')"><span class="nav-icon">⌘</span> Organisations / Gangs <span class="nav-count" id="count-organizations">0</span></div>
+        <div class="nav-item" id="nav-item-warrants" data-page="warrants" onclick="goPage('warrants')"><span class="nav-icon">⚠</span> Mandats <span class="nav-count" id="count-warrants">0</span></div>
+        <div class="nav-item" id="nav-item-penalcode" data-page="penalcode" onclick="goPage('penalcode')"><span class="nav-icon">§</span> Code Pénal <span class="nav-count" id="count-penalcode">0</span></div>
         <div class="nav-section-label">Dossier</div>
-        <div class="nav-item" data-page="arrestReports" onclick="goPage('arrestReports')"><span class="nav-icon">⛓</span> Rapport d'arrestation <span class="nav-count" id="count-arrestReports">0</span></div>
-        <div class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> Rapports <span class="nav-count" id="count-reports">0</span></div>
-        <div class="nav-item" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
-        <div class="nav-item" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
-        <div class="nav-item" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
-        <div class="nav-item" data-page="convocations" onclick="goPage('convocations')"><span class="nav-icon">📨</span> Convocation <span class="nav-count" id="count-convocations">0</span></div>
+        <div class="nav-item" id="nav-item-arrestReports" data-page="arrestReports" onclick="goPage('arrestReports')"><span class="nav-icon">⛓</span> Rapport d'arrestation <span class="nav-count" id="count-arrestReports">0</span></div>
+        <div class="nav-item" id="nav-item-reports" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> Rapports <span class="nav-count" id="count-reports">0</span></div>
+        <div class="nav-item" id="nav-item-seizures" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
+        <div class="nav-item" id="nav-item-ppa" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
+        <div class="nav-item" id="nav-item-complaints" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
+        <div class="nav-item" id="nav-item-convocations" data-page="convocations" onclick="goPage('convocations')"><span class="nav-icon">📨</span> Convocation <span class="nav-count" id="count-convocations">0</span></div>
         <div class="nav-section-label" id="nav-section-roster">Service</div>
         <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
@@ -676,7 +680,29 @@ const DEFAULT_RANKS = [
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{} };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', divisionLogos:{}, sectionAccess:{} };
+// Liste des sections du menu configurables depuis Paramètres > Gestion Section. L'Accueil en est
+// volontairement exclu : c'est la page de repli utilisée partout (connexion, accès refusé...),
+// elle doit donc rester accessible à tout le monde pour éviter tout blocage.
+const SECTION_REGISTRY = [
+  { key:'events', label:'Évènements', group:'Terminal' },
+  { key:'orgchart', label:'Organigramme', group:'Terminal' },
+  { key:'dispatch', label:'Dispatch', group:'Patrouille' },
+  { key:'serviceVehicles', label:'Véhicules Service', group:'Patrouille' },
+  { key:'citizens', label:'Citoyens', group:'Base de données' },
+  { key:'organizations', label:'Organisations / Gangs', group:'Base de données' },
+  { key:'warrants', label:'Mandats', group:'Base de données' },
+  { key:'penalcode', label:'Code Pénal', group:'Base de données' },
+  { key:'arrestReports', label:"Rapport d'arrestation", group:'Dossier' },
+  { key:'reports', label:'Rapports', group:'Dossier' },
+  { key:'seizures', label:'Saisies', group:'Dossier' },
+  { key:'ppa', label:'PPA', group:'Dossier' },
+  { key:'complaints', label:'Plainte', group:'Dossier' },
+  { key:'convocations', label:'Convocation', group:'Dossier' },
+  { key:'roster', label:'Effectifs', group:'Service' },
+  { key:'detectiveReports', label:'Rapports Detective', group:'Detective' },
+  { key:'logs', label:'Logs', group:'Logs' },
+];
 // Collections où le champ "author" est le matricule seul (ex-diminutif de grade retiré par migration) —
 // partagé entre la migration au chargement et le renommage de matricule (changeOfficerBadge).
 const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
@@ -692,9 +718,34 @@ function hasRankAtLeast(rank){
 function currentOfficer(){
   return SESSION ? DB.officers.find(o => o.badge === SESSION.badge) : null;
 }
+// Valeur de configuration d'une section (Paramètres > Gestion Section) : 'all' (tout le monde,
+// valeur implicite par défaut si non configurée), 'hidden' (personne), ou un nom de grade
+// (visible à partir de ce grade).
+function sectionAccessValue(key){
+  return (DB.settings.sectionAccess && DB.settings.sectionAccess[key]) || 'all';
+}
+function hasSectionAccess(key){
+  const v = sectionAccessValue(key);
+  if(v === 'hidden') return false;
+  if(v === 'all') return true;
+  return hasRankAtLeast(v); // v est alors un nom de grade
+}
+async function setSectionAccessValue(key, value){
+  if(!isAdmin()) return;
+  DB.settings.sectionAccess = DB.settings.sectionAccess || {};
+  DB.settings.sectionAccess[key] = value;
+  await saveKey('settings');
+  const label = value === 'all' ? 'Visible (tous grades)' : value === 'hidden' ? 'Non visible' : `Visible à partir de ${value}`;
+  await logAction('Modification accès section', `${key} → ${label}`);
+  updateNavVisibility();
+  render();
+}
 function hasDetectiveAccess(){
   if(!SESSION) return false;
-  if(hasRankAtLeast(DB.settings.captainTierMinRank)) return true;
+  const v = sectionAccessValue('detectiveReports');
+  if(v === 'hidden') return false; // désactivée entièrement, y compris pour les membres de la division
+  if(v === 'all') return true;
+  if(hasRankAtLeast(v)) return true;
   const officer = currentOfficer();
   return !!(officer && Array.isArray(officer.divisions) && officer.divisions.includes('Detective Division'));
 }
@@ -784,6 +835,17 @@ async function loadAll(){
     DB.settings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
     if(!loaded) await saveKey('settings');
   }catch(e){ DB.settings = Object.assign({}, DEFAULT_SETTINGS); }
+  // migration (une seule fois) : avant l'ajout de la visibilité des sections configurable,
+  // Effectifs/Rapports Detective étaient réservés au seuil "captainTierMinRank" et Logs au grade
+  // le plus élevé — on amorce sectionAccess avec l'équivalent pour ne rien changer par défaut.
+  if(!DB.settings.sectionAccess || Object.keys(DB.settings.sectionAccess).length === 0){
+    DB.settings.sectionAccess = {
+      roster: DB.settings.captainTierMinRank || 'Captain',
+      detectiveReports: DB.settings.captainTierMinRank || 'Captain',
+      logs: RANK_ORDER[RANK_ORDER.length-1] || 'Chief of Police',
+    };
+    await saveKey('settings');
+  }
   applyBranding();
   populateLoginRankOptions();
   // migration : ancien libellé de catégorie renommé
@@ -1114,15 +1176,7 @@ function enterApp(){
   const boloAllowed = hasRankAtLeast(DB.settings.boloMinRank);
   document.getElementById('bolo-add-btn').style.display = boloAllowed ? 'flex' : 'none';
   document.getElementById('bolo-reset-btn').style.display = boloAllowed ? 'flex' : 'none';
-  const detectiveAllowed = hasDetectiveAccess();
-  document.getElementById('nav-section-detective').style.display = detectiveAllowed ? 'block' : 'none';
-  document.getElementById('nav-item-detectiveReports').style.display = detectiveAllowed ? 'flex' : 'none';
-  const rosterAllowed = hasRankAtLeast(DB.settings.captainTierMinRank);
-  document.getElementById('nav-section-roster').style.display = rosterAllowed ? 'block' : 'none';
-  document.getElementById('nav-item-roster').style.display = rosterAllowed ? 'flex' : 'none';
-  const logsAllowed = isChief();
-  document.getElementById('nav-section-logs').style.display = logsAllowed ? 'block' : 'none';
-  document.getElementById('nav-item-logs').style.display = logsAllowed ? 'flex' : 'none';
+  updateNavVisibility();
   const adminAllowed = isAdmin();
   document.getElementById('nav-section-admin').style.display = adminAllowed ? 'block' : 'none';
   document.getElementById('nav-item-users').style.display = adminAllowed ? 'flex' : 'none';
@@ -1131,20 +1185,36 @@ function enterApp(){
   updateCounts();
   goPage('dashboard');
 }
+// Applique Paramètres > Gestion Section au menu latéral : affiche/masque chaque item selon le
+// grade minimum configuré (ou 'hidden'/'all'). Appelée à la connexion et à chaque changement
+// de réglage depuis la page Paramètres, pour un effet immédiat sans recharger la page.
+function updateNavVisibility(){
+  SECTION_REGISTRY.forEach(s => {
+    const allowed = s.key === 'detectiveReports' ? hasDetectiveAccess() : hasSectionAccess(s.key);
+    const el = document.querySelector(`.nav-item[data-page="${s.key}"]`);
+    if(el) el.style.display = allowed ? 'flex' : 'none';
+  });
+  // Les libellés de section ne contenant qu'un seul item (Service, Detective, Logs) suivent la
+  // visibilité de cet item.
+  const toggleGroup = (itemKey, sectionId) => {
+    const item = document.querySelector(`.nav-item[data-page="${itemKey}"]`);
+    const section = document.getElementById(sectionId);
+    if(section) section.style.display = (item && item.style.display !== 'none') ? 'block' : 'none';
+  };
+  toggleGroup('roster', 'nav-section-roster');
+  toggleGroup('detectiveReports', 'nav-section-detective');
+  toggleGroup('logs', 'nav-section-logs');
+}
 
 /* ===================== NAV ===================== */
 function goPage(page){
-  if(page === 'roster' && !hasRankAtLeast(DB.settings.captainTierMinRank)){
-    infoDialog(`Accès réservé aux grades ${DB.settings.captainTierMinRank} et au-dessus.`);
-    page = 'dashboard';
-  }
-  if(page === 'detectiveReports' && !hasDetectiveAccess()){
-    infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
-    page = 'dashboard';
-  }
-  if(page === 'logs' && !isChief()){
-    infoDialog("Accès réservé au grade Chief of Police.");
-    page = 'dashboard';
+  const sectionDef = SECTION_REGISTRY.find(s => s.key === page);
+  if(sectionDef){
+    const allowed = page === 'detectiveReports' ? hasDetectiveAccess() : hasSectionAccess(page);
+    if(!allowed){
+      infoDialog("Tu n'as pas accès à cette section.");
+      page = 'dashboard';
+    }
   }
   if(page === 'users' && !isAdmin()){
     infoDialog("Accès réservé aux administrateurs.");
@@ -4171,7 +4241,7 @@ function nextDetectiveCaseNumber(){
 }
 function renderDetectiveReports(){
   if(!hasDetectiveAccess()){
-    return `<div class="empty-state"><div class="em-icon">⚑</div>Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.</div>`;
+    return `<div class="empty-state"><div class="em-icon">⚑</div>Tu n'as pas accès à cette section.</div>`;
   }
   const list = [...DB.detectiveReports].sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
@@ -4870,8 +4940,8 @@ async function deleteOfficer(badge){
 /* ===================== LOGS ===================== */
 let logsSearch = '';
 function renderLogs(){
-  if(!isChief()){
-    return `<div class="empty-state"><div class="em-icon">▥</div>Accès réservé au grade Chief of Police.</div>`;
+  if(!hasSectionAccess('logs')){
+    return `<div class="empty-state"><div class="em-icon">▥</div>Tu n'as pas accès à cette section.</div>`;
   }
   const list = [...DB.logs].filter(l => (l.action+' '+l.details+' '+l.author).toLowerCase().includes(logsSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
@@ -5056,9 +5126,36 @@ async function deleteAdminUser(matricule){
 /* ===================== PARAMÈTRES (Administration) =====================
    Grades du service (ordre, renommage, création/suppression), seuils de grade
    utilisés pour certains droits d'accès, et logos personnalisables (MDT + documents publics). */
+let settingsActiveTab = 'grades'; // 'grades' | 'images' | 'sections'
+function switchSettingsTab(tab){
+  settingsActiveTab = tab;
+  render();
+}
 function renderSettingsPage(){
   if(!isAdmin()) return `<div class="empty-state"><div class="em-icon">🛠</div>Accès réservé aux administrateurs.</div>`;
 
+  const tabs = [
+    { key:'grades', label:'Grades' },
+    { key:'images', label:'Images' },
+    { key:'sections', label:'Gestion Section' },
+  ];
+  const tabsHtml = tabs.map(t => `<button class="settings-tab ${settingsActiveTab===t.key?'active':''}" onclick="switchSettingsTab('${t.key}')">${escapeHtml(t.label)}</button>`).join('');
+
+  let body = '';
+  if(settingsActiveTab === 'images') body = renderSettingsImagesTab();
+  else if(settingsActiveTab === 'sections') body = renderSettingsSectionsTab();
+  else body = renderSettingsGradesTab();
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Paramètres</div><div class="page-sub">CONFIGURATION RÉSERVÉE AUX ADMINISTRATEURS</div></div>
+    </div>
+    <div class="settings-tabs">${tabsHtml}</div>
+    ${body}
+  `;
+}
+
+function renderSettingsGradesTab(){
   const displayRanks = [...RANK_ORDER].reverse(); // du plus haut au plus bas, pour une lecture hiérarchique naturelle
   const rankRows = displayRanks.map((rank, dispIdx) => {
     const holders = DB.officers.filter(o => o.rank === rank).length;
@@ -5081,15 +5178,7 @@ function renderSettingsPage(){
   const boloOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.boloMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
   const captainOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.captainTierMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
 
-  const appLogoPreview = DB.settings.appLogoUrl ? `<img src="${escapeHtml(DB.settings.appLogoUrl)}">` : 'SA';
-  const pubdocLogoPreview = DB.settings.pubdocLogoUrl ? `<img src="${escapeHtml(DB.settings.pubdocLogoUrl)}">` : pubdocBadgeSvg();
-  const faviconPreview = DB.settings.faviconUrl ? `<img src="${escapeHtml(DB.settings.faviconUrl)}">` : `<img src="${defaultFaviconDataUrl()}">`;
-
   return `
-    <div class="page-head">
-      <div><div class="page-title">Paramètres</div><div class="page-sub">CONFIGURATION RÉSERVÉE AUX ADMINISTRATEURS</div></div>
-    </div>
-
     <div class="settings-section">
       <div class="settings-section-title">Grades du service</div>
       <div class="settings-section-sub">Ordre, renommage, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
@@ -5109,12 +5198,20 @@ function renderSettingsPage(){
           <select onchange="setThreshold('boloMinRank', this.value)">${boloOptions}</select>
         </div>
         <div class="field">
-          <label>Effectifs / Divisions / accès Detective forcé</label>
+          <label>Modification des divisions d'un agent</label>
           <select onchange="setThreshold('captainTierMinRank', this.value)">${captainOptions}</select>
         </div>
       </div>
     </div>
+  `;
+}
 
+function renderSettingsImagesTab(){
+  const appLogoPreview = DB.settings.appLogoUrl ? `<img src="${escapeHtml(DB.settings.appLogoUrl)}">` : 'SA';
+  const pubdocLogoPreview = DB.settings.pubdocLogoUrl ? `<img src="${escapeHtml(DB.settings.pubdocLogoUrl)}">` : pubdocBadgeSvg();
+  const faviconPreview = DB.settings.faviconUrl ? `<img src="${escapeHtml(DB.settings.faviconUrl)}">` : `<img src="${defaultFaviconDataUrl()}">`;
+
+  return `
     <div class="settings-section">
       <div class="settings-section-title">Logo du MDT</div>
       <div class="settings-section-sub">Affiché sur l'écran de connexion et dans la barre du haut de l'application.</div>
@@ -5169,6 +5266,35 @@ function renderSettingsPage(){
           </div>
         </div>`;
       }).join('')}
+    </div>
+  `;
+}
+
+function renderSettingsSectionsTab(){
+  const rows = SECTION_REGISTRY.map(s => {
+    const current = sectionAccessValue(s.key);
+    const rankOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${current===r?'selected':''}>À partir de : ${escapeHtml(r)}</option>`).join('');
+    return `
+      <tr>
+        <td class="mono" style="color:var(--text-faint);">${escapeHtml(s.group)}</td>
+        <td class="row-name">${escapeHtml(s.label)}</td>
+        <td>
+          <select onchange="setSectionAccessValue('${s.key}', this.value)">
+            <option value="all" ${current==='all'?'selected':''}>Visible (tous grades)</option>
+            <option value="hidden" ${current==='hidden'?'selected':''}>Non visible</option>
+            ${rankOptions}
+          </select>
+        </td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="settings-section" style="max-width:820px;">
+      <div class="settings-section-title">Gestion Section</div>
+      <div class="settings-section-sub">Visibilité de chaque section du menu, par grade. L'Accueil ainsi que Utilisateurs et Paramètres restent toujours accessibles (pour éviter tout blocage).</div>
+      <table>
+        <thead><tr><th>Groupe</th><th>Section</th><th>Accès</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
   `;
 }

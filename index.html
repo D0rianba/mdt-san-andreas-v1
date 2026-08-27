@@ -1401,6 +1401,11 @@ function infoDialog(message){
 /* ===================== RENDER ROUTER ===================== */
 function render(){
   const c = document.getElementById('content');
+  const active = document.activeElement;
+  let focusInfo = null;
+  if(active && active.id && c.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')){
+    focusInfo = { id: active.id, start: active.selectionStart, end: active.selectionEnd };
+  }
   if(currentPage === 'dashboard') c.innerHTML = renderDashboard();
   else if(currentPage === 'events') c.innerHTML = renderEvents();
   else if(currentPage === 'dispatch') c.innerHTML = renderDispatch();
@@ -1425,6 +1430,15 @@ function render(){
   else if(currentPage === 'users') c.innerHTML = renderUsers();
   updateCounts();
   renderTicker();
+  if(focusInfo){
+    const el = document.getElementById(focusInfo.id);
+    if(el){
+      el.focus();
+      if(typeof el.setSelectionRange === 'function' && focusInfo.start != null){
+        try{ el.setSelectionRange(focusInfo.start, focusInfo.end); }catch(e){}
+      }
+    }
+  }
 }
 
 /* ===================== VÉHICULES SERVICE ===================== */
@@ -1443,7 +1457,7 @@ function renderServiceVehicles(){
       <button class="btn btn-primary" onclick="openServiceVehicleModal()">+ Nouveau véhicule</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher une plaque, un modèle, une division..." value="${escapeHtml(serviceVehicleSearch)}" oninput="serviceVehicleSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="service-vehicle-search-box" placeholder="Rechercher une plaque, un modèle, une division..." value="${escapeHtml(serviceVehicleSearch)}" oninput="serviceVehicleSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -2080,7 +2094,7 @@ function renderCitizens(){
       <button class="btn btn-primary" onclick="openCitizenModal()">+ Nouvelle fiche</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un nom, prénom, numéro de téléphone..." value="${escapeHtml(citizenSearch)}" oninput="citizenSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="citizen-search-box" placeholder="Rechercher un nom, prénom, numéro de téléphone..." value="${escapeHtml(citizenSearch)}" oninput="citizenSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -2354,7 +2368,7 @@ function renderOrganizations(){
               Cacher les organisations inactives
             </label>
           </div>
-          <input class="org-search" placeholder="Rechercher..." value="${escapeHtml(orgSearch)}" oninput="orgSearch=this.value;render()">
+          <input id="org-search-box" class="org-search" placeholder="Rechercher..." value="${escapeHtml(orgSearch)}" oninput="orgSearch=this.value;render()">
         </div>
         <div class="org-list-body">
           ${list.length ? list.map(o => `
@@ -2582,7 +2596,7 @@ function renderArrestReports(){
       <button class="btn btn-primary" onclick="openNewArrestReportPage()">+ Nouveau rapport</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un nom, un n° de dossier..." value="${escapeHtml(arrestSearch)}" oninput="arrestSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="arrest-search-box" placeholder="Rechercher un nom, un n° de dossier..." value="${escapeHtml(arrestSearch)}" oninput="arrestSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3074,7 +3088,7 @@ function renderSeizures(){
       <button class="btn btn-primary" onclick="openSeizureModal()">+ Nouvelle saisie</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un objet, un propriétaire, un n° de dossier..." value="${escapeHtml(seizureSearch)}" oninput="seizureSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="seizure-search-box" placeholder="Rechercher un objet, un propriétaire, un n° de dossier..." value="${escapeHtml(seizureSearch)}" oninput="seizureSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3148,7 +3162,7 @@ function renderComplaints(){
       <button class="btn btn-primary" onclick="openNewComplaintPage()">+ Nouvelle plainte</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un dépositaire, une raison, un n° de plainte..." value="${escapeHtml(complaintSearch)}" oninput="complaintSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="complaint-search-box" placeholder="Rechercher un dépositaire, une raison, un n° de plainte..." value="${escapeHtml(complaintSearch)}" oninput="complaintSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3455,7 +3469,7 @@ function renderPPAs(){
       <button class="btn btn-primary" onclick="openPpaModal()">+ Attribuer un PPA</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un titulaire, un n° de permis..." value="${escapeHtml(ppaSearch)}" oninput="ppaSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="ppa-search-box" placeholder="Rechercher un titulaire, un n° de permis..." value="${escapeHtml(ppaSearch)}" oninput="ppaSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -4093,7 +4107,7 @@ function renderPenalCode(){
         : `<span class="tag tag-grey" title="Réservé au grade Chief">Gestion réservée au Chief</span>`}
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un code, un intitulé, une description..." value="${escapeHtml(penalCodeSearch)}" oninput="penalCodeSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="penal-code-search-box" placeholder="Rechercher un code, un intitulé, une description..." value="${escapeHtml(penalCodeSearch)}" oninput="penalCodeSearch=this.value;render()"></div>
     </div>
     ${list.length ? PENAL_CATEGORY_ORDER.filter(cat => list.some(p => p.category === cat)).map(cat => {
       const rows = list.filter(p => p.category === cat);
@@ -4246,7 +4260,7 @@ function renderLogs(){
       <div><div class="page-title">Logs</div><div class="page-sub">JOURNAL D'ACTIVITÉ DU TERMINAL · ${DB.logs.length} entrée${DB.logs.length>1?'s':''} (500 max, les plus anciennes sont purgées)</div></div>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher une action, un agent..." value="${escapeHtml(logsSearch)}" oninput="logsSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="logs-search-box" placeholder="Rechercher une action, un agent..." value="${escapeHtml(logsSearch)}" oninput="logsSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>

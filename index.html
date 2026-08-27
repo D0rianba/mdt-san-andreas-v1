@@ -110,6 +110,7 @@
   .tb-spacer{flex:1;}
   .tb-clock{font-family:var(--font-mono);font-size:13px;color:var(--text-dim);letter-spacing:0.5px;}
   .tb-user{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+  .tb-rank-logo{width:20px;height:20px;object-fit:contain;border-radius:4px;}
   .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
 
   /* ===== TICKER (signature element) ===== */
@@ -519,7 +520,7 @@
       <div class="tb-spacer"></div>
       <div class="tb-clock" id="tb-clock">--:--:--</div>
       <div class="tb-sep"></div>
-      <div class="tb-user"><span class="status-dot"></span><span id="tb-user-name">—</span></div>
+      <div class="tb-user"><span class="status-dot"></span><img id="tb-rank-logo" class="tb-rank-logo" style="display:none;"><span id="tb-user-name">—</span></div>
       <button class="btn btn-sm" style="margin-left:10px;" onclick="openChangeNameModal()">Modifier mon nom</button>
       <button class="btn btn-sm" id="tb-changepw-btn" style="margin-left:6px;display:none;" onclick="openChangePasswordModal()">Mot de passe</button>
       <button class="btn btn-sm" style="margin-left:6px;" onclick="doLogout()">Déconnexion</button>
@@ -942,6 +943,21 @@ function applyBranding(){
   });
   const faviconLink = document.getElementById('favicon-link');
   if(faviconLink) faviconLink.href = (DB.settings && DB.settings.faviconUrl) || defaultFaviconDataUrl();
+  updateTbRankLogo();
+}
+// Affiche, à côté de l'identité en haut à droite, le logo du grade de l'agent connecté
+// (Paramètres > Grades > Logo) — masqué si ce grade n'a pas de logo personnalisé.
+function updateTbRankLogo(){
+  const img = document.getElementById('tb-rank-logo');
+  if(!img) return;
+  const url = SESSION && DB.settings.rankLogos && DB.settings.rankLogos[SESSION.rank];
+  if(url){
+    img.src = url;
+    img.style.display = 'inline-block';
+  } else {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+  }
 }
 // Reconstruit la liste déroulante des grades de l'écran de connexion (mode local, sans Supabase)
 // à partir de la hiérarchie actuelle, pour qu'elle reste à jour si l'administrateur modifie les grades.
@@ -1173,6 +1189,7 @@ function enterApp(){
   document.getElementById('shell').style.display = 'flex';
   document.getElementById('tb-callsign').textContent = SESSION.badge;
   document.getElementById('tb-user-name').textContent = SESSION.rank + ' ' + SESSION.name;
+  updateTbRankLogo();
   const boloAllowed = hasRankAtLeast(DB.settings.boloMinRank);
   document.getElementById('bolo-add-btn').style.display = boloAllowed ? 'flex' : 'none';
   document.getElementById('bolo-reset-btn').style.display = boloAllowed ? 'flex' : 'none';
@@ -5370,6 +5387,7 @@ async function renameRank(oldName, newName){
     await saveSession(SESSION);
     const tbUserName = document.getElementById('tb-user-name');
     if(tbUserName) tbUserName.textContent = SESSION.rank + ' ' + SESSION.name;
+    updateTbRankLogo();
   }
   if(DB.settings.boloMinRank === oldName) DB.settings.boloMinRank = newName;
   if(DB.settings.captainTierMinRank === oldName) DB.settings.captainTierMinRank = newName;
@@ -5588,6 +5606,7 @@ function openRankLogoModal(rank){
       else delete DB.settings.rankLogos[rank];
       await saveKey('settings');
       await logAction('Modification logo', `Logo du grade "${rank}" mis à jour`);
+      updateTbRankLogo();
       render();
     }
   });
@@ -5599,6 +5618,7 @@ async function resetRankLogo(rank){
   if(DB.settings.rankLogos) delete DB.settings.rankLogos[rank];
   await saveKey('settings');
   await logAction('Modification logo', `Logo du grade "${rank}" retiré`);
+  updateTbRankLogo();
   render();
 }
 

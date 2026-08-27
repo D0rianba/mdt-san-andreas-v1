@@ -80,6 +80,15 @@
     outline:none;transition:border-color .15s;
   }
   .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--blue);}
+  /* Select "libres" (hors formulaires .field, ex. tableaux/cartes) : même thème sombre par défaut,
+     pour éviter la cassure visuelle du rendu blanc natif du navigateur. */
+  select{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:6px 8px;border-radius:var(--radius);font-family:var(--font-body);font-size:12.5px;
+    outline:none;cursor:pointer;transition:border-color .15s;
+  }
+  select:focus{border-color:var(--blue);}
+  select:hover{border-color:var(--border-soft);}
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;}
   .btn{
@@ -395,6 +404,33 @@
   .pubdoc-evidence img{width:90px;height:90px;object-fit:cover;border-radius:4px;border:1px solid #e2e5ea;}
   .pubdoc-notfound{max-width:520px;margin:80px auto;text-align:center;color:#3a4250;}
 
+  /* ===== AVIS DE RECHERCHE PUBLIC (mandat) ===== */
+  .wanted-poster{max-width:820px;margin:0 auto;background:#ffffff;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12);padding:40px 46px 34px;}
+  .wanted-head{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:center;}
+  .wanted-badge{flex:none;width:76px;height:76px;}
+  .wanted-head-center{flex:1;}
+  .wanted-alert-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:38px;color:#e3453e;margin:0;letter-spacing:1px;}
+  .wanted-notif{font-weight:700;font-size:18px;color:#1c2026;margin-top:2px;}
+  .wanted-dept{font-weight:700;font-size:15px;color:#1c2026;margin-top:2px;}
+  .wanted-official{font-weight:700;font-size:11px;letter-spacing:1px;color:#1c2026;}
+  .wanted-hr{border:none;border-top:2px solid #1c2026;margin:18px 0;}
+  .wanted-most{text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:26px;color:#e3453e;margin:6px 0;letter-spacing:0.5px;}
+  .wanted-reward{text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:32px;color:#e3453e;margin:0 0 20px;}
+  .wanted-body{display:flex;gap:26px;align-items:flex-start;}
+  .wanted-info{flex:1;font-size:14px;color:#1c2026;line-height:1.6;}
+  .wanted-info .wi-name{font-weight:700;font-size:18px;margin-bottom:10px;}
+  .wanted-info .wi-block{margin-bottom:14px;}
+  .wanted-info .wi-label{color:#1c2026;}
+  .wanted-info b{font-weight:700;}
+  .wanted-info ul{margin:2px 0 0;padding-left:18px;}
+  .wanted-photo{flex:none;width:260px;height:300px;object-fit:cover;border-radius:2px;background:#e2e5ea;}
+  .wanted-contact{background:#f8c99a;padding:10px 14px;font-weight:700;font-size:14px;color:#1c2026;margin-top:24px;display:inline-block;}
+  .wanted-contact-line{font-weight:700;font-size:14px;margin-top:6px;}
+  .wanted-contact-dept{color:#2b6cb0;font-style:italic;font-weight:700;text-decoration:underline;}
+  .wanted-danger-banner{background:#8b2e2e;color:#ffffff;font-weight:700;font-size:20px;letter-spacing:1px;padding:12px 22px;display:inline-block;margin-top:22px;}
+  .wanted-footer{border-top:1px solid #1c2026;margin-top:26px;padding-top:14px;font-size:12px;color:#1c2026;display:flex;justify-content:space-between;align-items:center;}
+  .wanted-footer-badge{width:46px;height:46px;}
+
   /* ===== ORGANIGRAMME ===== */
   .orgchart-wrap{overflow-x:auto;padding:10px 4px 30px;}
   .orgchart{display:flex;flex-direction:column;align-items:center;min-width:max-content;}
@@ -418,6 +454,27 @@
   .orgchart-div-card .odc-officer{font-size:12.5px;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border-soft);}
   .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
   .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
+
+  /* ===== MANDATS (cartes) ===== */
+  .warrant-card{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;cursor:pointer;}
+  .warrant-card:hover{border-color:var(--border-soft);}
+  .warrant-card.wc-actif{border-left-color:var(--red);}
+  .warrant-card.wc-execute{border-left-color:var(--green);}
+  .warrant-card.wc-annule{border-left-color:var(--text-faint);}
+  .warrant-card .wc-top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .warrant-card .wc-ref{font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:0.5px;margin-bottom:3px;}
+  .warrant-card .wc-name{font-size:19px;font-weight:700;color:var(--text);margin-bottom:9px;}
+  .warrant-card .wc-tags{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .warrant-card .wc-meta{display:flex;gap:36px;flex-wrap:wrap;margin-bottom:12px;}
+  .warrant-card .wc-meta-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+  .warrant-card .wc-meta-value{font-size:13px;color:var(--text);font-weight:600;}
+  .warrant-card .wc-motif-label{font-family:var(--font-mono);font-size:10px;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+  .warrant-card .wc-motif-text{font-size:13px;color:var(--text-dim);line-height:1.6;white-space:pre-line;}
+  .wc-status-select{background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:6px 8px;border-radius:var(--radius);font-family:var(--font-mono);font-size:11.5px;
+    outline:none;transition:border-color .15s;cursor:pointer;}
+  .wc-status-select:focus{border-color:var(--blue);}
+  .wc-status-select:hover{border-color:var(--border-soft);}
 
   /* ===== PARAMÈTRES (Administration) ===== */
   .settings-section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;max-width:760px;}
@@ -920,6 +977,14 @@ async function loadAll(){
     if(p.category === 'Infraction'){ p.category = 'Contraventionnelle'; migrated = true; }
   });
   if(migrated) await saveKey('penalCode');
+
+  // migration : numéro de référence pour les mandats créés avant l'ajout de cette fonctionnalité
+  // (attribué dans l'ordre chronologique de création pour rester cohérent)
+  let warrantsMigrated = false;
+  [...DB.warrants].sort((a,b) => new Date(a.date)-new Date(b.date)).forEach(w => {
+    if(!w.warrantNumber){ w.warrantNumber = nextWarrantNumber(); warrantsMigrated = true; }
+  });
+  if(warrantsMigrated) await saveKey('warrants');
 
   // migration : division unique -> tableau de divisions
   let officersMigrated = false;
@@ -1644,6 +1709,9 @@ function syncCitizenComboToPageDraft(hiddenId, value){
   if(hiddenId === 'mf-citizenId' && typeof convocationFormDraft !== 'undefined' && convocationFormDraft){
     convocationFormDraft.citizenId = value;
   }
+  if(hiddenId === 'mf-subjectId' && typeof warrantFormDraft !== 'undefined' && warrantFormDraft){
+    warrantFormDraft.subjectId = value;
+  }
 }
 function hideCitizenComboLater(inputEl){
   const hiddenId = inputEl.id.replace('-display','');
@@ -1725,6 +1793,7 @@ function render(){
   else if(currentPage === 'reportForm') c.innerHTML = renderReportForm();
   else if(currentPage === 'detectiveReportForm') c.innerHTML = renderDetectiveReportForm();
   else if(currentPage === 'warrants') c.innerHTML = renderWarrants();
+  else if(currentPage === 'warrantForm') c.innerHTML = renderWarrantForm();
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
@@ -2358,7 +2427,7 @@ function renderDashboard(){
 
   const recent = [
     ...DB.reports.map(r => ({ t:r.date, text:`Rapport <b>${escapeHtml(r.caseNumber)}</b> créé — ${escapeHtml(r.interventionType || '')} (${escapeHtml(r.location || '')})`, by:r.author })),
-    ...DB.warrants.map(w => ({ t:w.date, text:`Mandat émis contre <b>${escapeHtml(w.subject)}</b>`, by:w.author })),
+    ...DB.warrants.map(w => ({ t:w.date, text:`Mandat émis contre <b>${escapeHtml(warrantSubjectLabel(w))}</b>`, by:w.author })),
     ...DB.citizens.map(c => ({ t:c.date, text:`Fiche citoyen créée — <b>${escapeHtml(c.firstName+' '+c.lastName)}</b>`, by:c.author })),
   ].sort((a,b) => new Date(b.t) - new Date(a.t)).slice(0,8);
 
@@ -3796,6 +3865,15 @@ function citizenLabelForConvocation(c){
   const cit = DB.citizens.find(x => x.id === c.citizenId);
   return cit ? citizenIdentifierLabel(cit) : 'Citoyen inconnu';
 }
+function warrantSubjectLabel(w){
+  const cit = DB.citizens.find(x => x.id === w.subjectId);
+  return cit ? citizenIdentifierLabel(cit) : 'Non renseigné';
+}
+function nextWarrantNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.warrants.filter(w => w.warrantNumber && w.warrantNumber.includes('-'+year+'-')).length + 1;
+  return `MAN-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
 
 let convocationSearch = '';
 function renderConvocations(){
@@ -4589,29 +4667,46 @@ function openDetectiveReportView(id){
 /* ===================== WARRANTS ===================== */
 function renderWarrants(){
   const list = [...DB.warrants].sort((a,b) => new Date(b.date)-new Date(a.date));
+  const statusClass = w => w.status === 'Actif' ? 'wc-actif' : w.status === 'Exécuté' ? 'wc-execute' : 'wc-annule';
   return `
     <div class="page-head">
       <div><div class="page-title">Mandats</div><div class="page-sub">MANDATS D'ARRÊT ET DE PERQUISITION</div></div>
-      <button class="btn btn-primary" onclick="openWarrantModal()">+ Nouveau mandat</button>
+      <button class="btn btn-primary" onclick="openNewWarrantPage()">+ Nouveau mandat</button>
     </div>
-    ${list.length ? `
-    <table>
-      <thead><tr><th>Sujet</th><th>Chef d'accusation</th><th>Émis par</th><th>Date</th><th>Statut</th><th></th></tr></thead>
-      <tbody>
-        ${list.map(w => `
-          <tr>
-            <td class="row-name">${escapeHtml(w.subject)}</td>
-            <td>${escapeHtml(w.charge)}</td>
-            <td class="mono">${escapeHtml(w.author)}</td>
-            <td class="mono">${new Date(w.date).toLocaleDateString('fr-FR')}</td>
-            <td>${warrantTag(w.status)}</td>
-            <td class="row-actions">
-              <button class="icon-btn" onclick="openWarrantModal('${w.id}')">Modifier</button>
-              <button class="icon-btn danger" onclick="deleteEntity('warrants','${w.id}')">Suppr.</button>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>` : `<div class="empty-state"><div class="em-icon">⚠</div>Aucun mandat en cours.</div>`}
+    ${list.length ? list.map(w => {
+      const citizen = DB.citizens.find(c => c.id === w.subjectId);
+      const author = DB.officers.find(o => o.badge === w.author);
+      return `
+      <div class="warrant-card ${statusClass(w)}" onclick="openEditWarrantPage('${w.id}')">
+        <div class="wc-top">
+          <div>
+            <div class="wc-ref">${escapeHtml(w.warrantNumber || w.id)}</div>
+            <div class="wc-name">${escapeHtml(warrantSubjectLabel(w))}</div>
+          </div>
+          <div class="row-actions" onclick="event.stopPropagation();">
+            <select class="wc-status-select" onchange="setWarrantStatus('${w.id}', this.value)">
+              ${['Actif','Exécuté','Annulé'].map(st => `<option value="${st}" ${w.status===st?'selected':''}>${st}</option>`).join('')}
+            </select>
+            <button class="icon-btn" onclick="openPublicLinkModal('${w.warrantNumber || w.id}','warrant')">🔗 Lien public</button>
+            <button class="icon-btn danger" onclick="deleteEntity('warrants','${w.id}')">Suppr.</button>
+          </div>
+        </div>
+        <div class="wc-tags">
+          ${warrantTag(w.status)}
+          ${w.dangerous === 'Oui' ? '<span class="tag tag-red">Armé et dangereux</span>' : ''}
+        </div>
+        <div class="wc-meta">
+          <div><div class="wc-meta-label">Date de naissance</div><div class="wc-meta-value">${citizen && citizen.dob ? escapeHtml(citizen.dob) : '—'}</div></div>
+          <div><div class="wc-meta-label">Dernière localisation</div><div class="wc-meta-value">${escapeHtml(w.lastKnownLocation) || '—'}</div></div>
+          <div><div class="wc-meta-label">Véhicule connu</div><div class="wc-meta-value">${escapeHtml(w.knownVehicle) || '—'}</div></div>
+          <div><div class="wc-meta-label">Émis par</div><div class="wc-meta-value">${author ? escapeHtml(author.name) : (escapeHtml(w.author) || '—')}</div></div>
+          <div><div class="wc-meta-label">Reward</div><div class="wc-meta-value">${w.reward ? formatMoney(w.reward) : '—'}</div></div>
+        </div>
+        ${w.reason ? `
+        <div class="wc-motif-label">Motif</div>
+        <div class="wc-motif-text">${escapeHtml(w.reason)}</div>` : ''}
+      </div>`;
+    }).join('') : `<div class="empty-state"><div class="em-icon">⚠</div>Aucun mandat en cours.</div>`}
   `;
 }
 function warrantTag(status){
@@ -4619,25 +4714,140 @@ function warrantTag(status){
   if(status === 'Exécuté') return '<span class="tag tag-green">Exécuté</span>';
   return '<span class="tag tag-grey">Annulé</span>';
 }
-function openWarrantModal(id){
-  const existing = id ? DB.warrants.find(w => w.id === id) : null;
-  showModal({
-    title: existing ? 'Modifier le mandat' : 'Nouveau mandat',
-    fields: [
-      { key:'subject', label:'Sujet visé' },
-      { key:'charge', label:"Chef d'accusation" },
-      { key:'status', label:'Statut', type:'select', options:['Actif','Exécuté','Annulé'] },
-      { key:'notes', label:'Notes', type:'textarea' },
-    ],
-    initial: existing || {},
-    onSubmit: async (data) => {
-      if(existing) Object.assign(existing, data);
-      else DB.warrants.push({ id: uid('war'), ...data, date: nowISO(), author: SESSION.callsign });
-      await saveKey('warrants');
-      await logAction(existing ? 'Modification mandat' : 'Création mandat', data.subject);
-      render();
-    }
-  });
+async function setWarrantStatus(id, status){
+  const w = DB.warrants.find(x => x.id === id);
+  if(!w) return;
+  w.status = status;
+  await saveKey('warrants');
+  await logAction('Modification mandat', `${warrantSubjectLabel(w)} — statut → ${status}`);
+  render();
+}
+
+let warrantFormDraft = null;
+function openNewWarrantPage(){
+  warrantFormDraft = {
+    id: null, subjectId: '', dangerous: 'Non', reason: '', weapons: '',
+    knownAs: '', lastKnownLocation: '', knownVehicle: '', reward: 0, status: 'Actif'
+  };
+  currentPage = 'warrantForm';
+  render();
+}
+function openEditWarrantPage(id){
+  const existing = DB.warrants.find(w => w.id === id);
+  if(!existing) return;
+  warrantFormDraft = {
+    id: existing.id, subjectId: existing.subjectId || '',
+    dangerous: existing.dangerous === 'Oui' ? 'Oui' : 'Non',
+    reason: existing.reason || '', weapons: existing.weapons || '',
+    knownAs: existing.knownAs || '', lastKnownLocation: existing.lastKnownLocation || '',
+    knownVehicle: existing.knownVehicle || '',
+    reward: existing.reward || 0, status: existing.status || 'Actif'
+  };
+  currentPage = 'warrantForm';
+  render();
+}
+function renderWarrantForm(){
+  if(!warrantFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = warrantFormDraft;
+  const citizen = d.subjectId ? DB.citizens.find(c => c.id === d.subjectId) : null;
+  const citizenDisplay = citizen ? citizenIdentifierLabel(citizen) : '';
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('warrants')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? "Modifier le mandat d'arrêt" : "Nouveau mandat d'arrêt"}</div></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Personne recherchée :</label>
+      <div class="citizen-combo">
+        <input type="text" id="mf-subjectId-display" class="citizen-combo-input" autocomplete="off"
+          placeholder="${DB.citizens.length ? 'Rechercher un citoyen...' : 'Aucun citoyen enregistré'}"
+          value="${escapeHtml(citizenDisplay)}"
+          oninput="filterCitizenCombo(this)" onfocus="filterCitizenCombo(this)" onblur="hideCitizenComboLater(this)">
+        <input type="hidden" id="mf-subjectId" value="${escapeHtml(d.subjectId)}">
+        <div class="citizen-combo-results" id="mf-subjectId-results"></div>
+      </div>
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>Armé et dangereux ?</label>
+      <select onchange="warrantFormDraft.dangerous=this.value;render()">
+        <option value="Non" ${d.dangerous==='Non'?'selected':''}>Non</option>
+        <option value="Oui" ${d.dangerous==='Oui'?'selected':''}>Oui</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Raison du mandat :</label>
+      <textarea rows="4" placeholder="Ex. Assassinat, Braquage de banque centrale..." oninput="warrantFormDraft.reason=this.value">${escapeHtml(d.reason)}</textarea>
+    </div>
+
+    ${d.dangerous === 'Oui' ? `
+    <div class="field">
+      <label>Armement :</label>
+      <textarea rows="4" placeholder="Ex. Arme de poing, Fusil d'assaut, Couteau..." oninput="warrantFormDraft.weapons=this.value">${escapeHtml(d.weapons)}</textarea>
+    </div>` : ''}
+
+    <div class="field">
+      <label>Connu en tant que :</label>
+      <textarea rows="3" placeholder="Ex. Chef du gang des grands méchants, Terroriste international..." oninput="warrantFormDraft.knownAs=this.value">${escapeHtml(d.knownAs)}</textarea>
+    </div>
+
+    <div class="field">
+      <label>Dernière position connue :</label>
+      <input type="text" placeholder="Ex. South Los Santos" value="${escapeHtml(d.lastKnownLocation)}" oninput="warrantFormDraft.lastKnownLocation=this.value">
+    </div>
+
+    <div class="field">
+      <label>Véhicule connu :</label>
+      <input type="text" placeholder="Ex. Sultan RS noire, plaque ABC-123" value="${escapeHtml(d.knownVehicle)}" oninput="warrantFormDraft.knownVehicle=this.value">
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>Reward (en $) :</label>
+      <input type="number" min="0" step="1" value="${escapeHtml(String(d.reward))}" oninput="warrantFormDraft.reward=this.value">
+    </div>
+
+    <div class="af-row" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="submitWarrant()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+      ${d.id ? `<button class="btn btn-red" onclick="deleteWarrantFromForm('${d.id}')">Supprimer</button>` : ''}
+    </div>
+  `;
+}
+async function submitWarrant(){
+  const d = warrantFormDraft;
+  if(!d.subjectId){ await infoDialog('Une personne recherchée est requise.'); return; }
+  const reward = parseInt(d.reward, 10);
+  const payload = {
+    subjectId: d.subjectId, dangerous: d.dangerous, reason: d.reason,
+    weapons: d.dangerous === 'Oui' ? d.weapons : '', knownAs: d.knownAs,
+    lastKnownLocation: d.lastKnownLocation, knownVehicle: d.knownVehicle,
+    reward: isNaN(reward) ? 0 : Math.max(0, reward),
+    status: d.status
+  };
+  if(d.id){
+    const existing = DB.warrants.find(w => w.id === d.id);
+    Object.assign(existing, payload);
+  } else {
+    DB.warrants.push({ id: uid('war'), warrantNumber: nextWarrantNumber(), ...payload, date: nowISO(), author: SESSION.callsign });
+  }
+  await saveKey('warrants');
+  await logAction(d.id ? 'Modification mandat' : 'Création mandat', warrantSubjectLabel({ subjectId: d.subjectId }));
+  warrantFormDraft = null;
+  goPage('warrants');
+}
+// Suppression depuis le formulaire (bouton "Supprimer") : n'attend deleteEntity (qui demande déjà
+// confirmation) qu'avant de quitter la page, pour ne pas naviguer si l'utilisateur annule.
+async function deleteWarrantFromForm(id){
+  const before = DB.warrants.length;
+  await deleteEntity('warrants', id);
+  if(DB.warrants.length < before){
+    warrantFormDraft = null;
+    goPage('warrants');
+  }
 }
 
 /* ===================== CODE PÉNAL ===================== */
@@ -5807,14 +6017,18 @@ function buildPublicDetectiveReportUrl(caseNumber){
 function buildPublicConvocationUrl(convocationNumber){
   return location.origin + location.pathname + '?public_convocation=' + encodeURIComponent(convocationNumber);
 }
+function buildPublicWarrantUrl(warrantNumber){
+  return location.origin + location.pathname + '?public_warrant=' + encodeURIComponent(warrantNumber);
+}
 function openPublicLinkModal(number, kind){
-  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective' ou 'convocation'
+  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective', 'convocation' ou 'warrant'
   const url = kind === 'complaint' ? buildPublicComplaintUrl(number)
     : kind === 'report_incident' ? buildPublicIncidentReportUrl(number)
     : kind === 'report_detective' ? buildPublicDetectiveReportUrl(number)
     : kind === 'convocation' ? buildPublicConvocationUrl(number)
+    : kind === 'warrant' ? buildPublicWarrantUrl(number)
     : buildPublicReportUrl(number);
-  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : 'Lien public du rapport';
+  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : kind === 'warrant' ? 'Lien public du mandat' : 'Lien public du rapport';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
@@ -6220,6 +6434,82 @@ function renderPublicConvocation(idOrNumber){
   `;
 }
 
+function renderPublicWarrant(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const w = DB.warrants.find(x => x.warrantNumber === idOrNumber || x.id === idOrNumber);
+  if(!w){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Mandat introuvable</h2>
+      <p>Ce lien ne correspond à aucun mandat enregistré, ou il a été supprimé.</p>
+    </div>`;
+    return;
+  }
+
+  const citizen = DB.citizens.find(x => x.id === w.subjectId);
+  const dateStr = new Date(w.date).toLocaleDateString('fr-FR');
+  const timeStr = new Date(w.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const dangerous = w.dangerous === 'Oui';
+  const badgeHtml = DB.settings.pubdocLogoUrl ? `<img src="${escapeHtml(DB.settings.pubdocLogoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : pubdocBadgeSvg();
+
+  const weaponsList = (w.weapons||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const reasonsList = (w.reason||'').split('\n').map(s=>s.trim()).filter(Boolean);
+
+  root.innerHTML = `
+    <div class="wanted-poster">
+      <div class="wanted-head">
+        <div class="wanted-badge">${badgeHtml}</div>
+        <div class="wanted-head-center">
+          <h1 class="wanted-alert-title">COMMUNITY ALERT</h1>
+          <div class="wanted-notif">Notification</div>
+          <div class="wanted-dept">Département de Police de San Andreas</div>
+          <div class="wanted-official">PUBLICATION OFFICIELLE</div>
+        </div>
+        <div class="wanted-badge">${badgeHtml}</div>
+      </div>
+      <hr class="wanted-hr">
+      <div class="wanted-most">SUSPECT RECHERCHÉ</div>
+      ${w.reward ? `<div class="wanted-reward">${formatMoney(w.reward)} RÉCOMPENSE</div>` : ''}
+
+      <div class="wanted-body">
+        <div class="wanted-info">
+          <div class="wi-name">Nom : ${citizen ? escapeHtml(citizen.firstName+' '+citizen.lastName) : escapeHtml(warrantSubjectLabel(w))}</div>
+
+          <div class="wi-block">
+            Date de naissance : <b>${citizen && citizen.dob ? escapeHtml(citizen.dob) : 'Inconnue'}</b><br>
+            Taille : <b>${citizen && citizen.height ? escapeHtml(String(citizen.height))+' cm' : 'Inconnue'}</b><br>
+            Poids : <b>${citizen && citizen.weight ? escapeHtml(String(citizen.weight))+' kg' : 'Inconnu'}</b>
+          </div>
+
+          ${w.knownAs ? `<div class="wi-block">Connu en tant que :<br><b>${escapeHtml(w.knownAs).replace(/\n/g,'<br>')}</b></div>` : ''}
+
+          ${w.lastKnownLocation ? `<div class="wi-block">Dernière position connue : <b>${escapeHtml(w.lastKnownLocation)}</b></div>` : ''}
+
+          ${dangerous && weaponsList.length ? `<div class="wi-block">Armes connues :<ul>${weaponsList.map(x=>`<li><b>${escapeHtml(x)}</b></li>`).join('')}</ul></div>` : ''}
+
+          ${reasonsList.length ? `<div class="wi-block">Motifs :<ul>${reasonsList.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+        </div>
+        ${citizen && citizen.photo ? `<img class="wanted-photo" src="${citizen.photo}">` : ''}
+      </div>
+
+      <div class="wanted-contact">Si vous avez des informations à propos de cette personne</div>
+      <div class="wanted-contact-line">Contactez le<br><span class="wanted-contact-dept">Département de Police de San Andreas</span></div>
+
+      ${dangerous ? `<div class="wanted-danger-banner">ARMED AND DANGEROUS</div>` : ''}
+
+      <div class="wanted-footer">
+        <div>
+          Préparé par : Département de Police de San Andreas<br>
+          Émis le : ${dateStr} à ${timeStr}
+        </div>
+        <div class="wanted-footer-badge">${badgeHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
 async function init(){
   const publicId = new URLSearchParams(location.search).get('public_report');
   if(publicId){
@@ -6250,6 +6540,12 @@ async function init(){
     await loadAll();
     renderPublicConvocation(publicConvocationId);
     return; // pas de connexion nécessaire pour consulter une convocation publique
+  }
+  const publicWarrantId = new URLSearchParams(location.search).get('public_warrant');
+  if(publicWarrantId){
+    await loadAll();
+    renderPublicWarrant(publicWarrantId);
+    return; // pas de connexion nécessaire pour consulter un mandat public
   }
   // Bascule le formulaire de connexion : matricule + mot de passe si Supabase est
   // configuré (authentification réelle), sinon l'ancien formulaire ouvert (matricule + nom).

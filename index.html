@@ -719,6 +719,14 @@ function hasRankAtLeast(rank){
 function currentOfficer(){
   return SESSION ? DB.officers.find(o => o.badge === SESSION.badge) : null;
 }
+// Matricule + nom de l'agent correspondant à un badge, pour inclusion dans les barres de recherche
+// (permet de retrouver un dossier en tapant le nom de l'agent qui l'a créé/rédigé). Si l'agent
+// n'est plus dans les effectifs, on retombe sur le matricule seul (toujours retrouvable).
+function officerSearchTokens(badge){
+  if(!badge) return '';
+  const o = DB.officers.find(x => x.badge === badge);
+  return o ? (o.badge + ' ' + o.name) : badge;
+}
 // Valeur de configuration d'une section (Paramètres > Gestion Section) : 'all' (tout le monde,
 // valeur implicite par défaut si non configurée), 'hidden' (personne), ou un nom de grade
 // (visible à partir de ce grade).
@@ -2898,7 +2906,7 @@ function resolveArrestSubjectNames(a){
 }
 function renderArrestReports(){
   const list = DB.arrestReports
-    .filter(a => (resolveArrestSubjectNames(a)+' '+a.bookingNumber).toLowerCase().includes(arrestSearch.toLowerCase()))
+    .filter(a => (resolveArrestSubjectNames(a)+' '+a.bookingNumber+' '+officerSearchTokens(a.author)+' '+officerSearchTokens(a.responsibleBadge)).toLowerCase().includes(arrestSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -2906,7 +2914,7 @@ function renderArrestReports(){
       <button class="btn btn-primary" onclick="openNewArrestReportPage()">+ Nouveau rapport</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input id="arrest-search-box" placeholder="Rechercher un nom, un n° de dossier..." value="${escapeHtml(arrestSearch)}" oninput="arrestSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="arrest-search-box" placeholder="Rechercher un nom, un n° de dossier, un agent..." value="${escapeHtml(arrestSearch)}" oninput="arrestSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3389,7 +3397,7 @@ function seizureOwnerDisplay(s){
 }
 function renderSeizures(){
   const list = DB.seizures
-    .filter(s => (s.item+' '+s.description+' '+s.seizureNumber+' '+seizureOwnerDisplay(s)).toLowerCase().includes(seizureSearch.toLowerCase()))
+    .filter(s => (s.item+' '+s.description+' '+s.seizureNumber+' '+seizureOwnerDisplay(s)+' '+officerSearchTokens(s.author)).toLowerCase().includes(seizureSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -3397,7 +3405,7 @@ function renderSeizures(){
       <button class="btn btn-primary" onclick="openSeizureModal()">+ Nouvelle saisie</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input id="seizure-search-box" placeholder="Rechercher un objet, un propriétaire, un n° de dossier..." value="${escapeHtml(seizureSearch)}" oninput="seizureSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="seizure-search-box" placeholder="Rechercher un objet, un propriétaire, un n° de dossier, un agent..." value="${escapeHtml(seizureSearch)}" oninput="seizureSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3463,7 +3471,7 @@ let complaintSearch = '';
 function renderComplaints(){
   const resolveDepositor = (c) => { const cit = DB.citizens.find(x => x.id === c.depositorId); return cit ? citizenIdentifierLabel(cit) : '—'; };
   const list = DB.complaints
-    .filter(c => (resolveDepositor(c)+' '+c.complaintNumber+' '+c.reason).toLowerCase().includes(complaintSearch.toLowerCase()))
+    .filter(c => (resolveDepositor(c)+' '+c.complaintNumber+' '+c.reason+' '+officerSearchTokens(c.author)+' '+officerSearchTokens(c.takenByBadge)).toLowerCase().includes(complaintSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -3471,7 +3479,7 @@ function renderComplaints(){
       <button class="btn btn-primary" onclick="openNewComplaintPage()">+ Nouvelle plainte</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input id="complaint-search-box" placeholder="Rechercher un dépositaire, une raison, un n° de plainte..." value="${escapeHtml(complaintSearch)}" oninput="complaintSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="complaint-search-box" placeholder="Rechercher un dépositaire, une raison, un n° de plainte, un agent..." value="${escapeHtml(complaintSearch)}" oninput="complaintSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -3792,7 +3800,7 @@ function citizenLabelForConvocation(c){
 let convocationSearch = '';
 function renderConvocations(){
   const list = DB.convocations
-    .filter(c => (citizenLabelForConvocation(c)+' '+c.convocationNumber+' '+(c.reason||'')).toLowerCase().includes(convocationSearch.toLowerCase()))
+    .filter(c => (citizenLabelForConvocation(c)+' '+c.convocationNumber+' '+(c.reason||'')+' '+officerSearchTokens(c.authorBadge)).toLowerCase().includes(convocationSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -3800,7 +3808,7 @@ function renderConvocations(){
       <button class="btn btn-primary" onclick="openNewConvocationPage()">+ Nouvelle convocation</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input id="convocation-search-box" placeholder="Rechercher une personne, une raison, un n° de convocation..." value="${escapeHtml(convocationSearch)}" oninput="convocationSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="convocation-search-box" placeholder="Rechercher une personne, une raison, un n° de convocation, un agent..." value="${escapeHtml(convocationSearch)}" oninput="convocationSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -4008,7 +4016,7 @@ function ppaHolderLabel(p){
 let ppaSearch = '';
 function renderPPAs(){
   const list = DB.ppas
-    .filter(p => (ppaHolderLabel(p)+' '+p.permitNumber+' '+p.category).toLowerCase().includes(ppaSearch.toLowerCase()))
+    .filter(p => (ppaHolderLabel(p)+' '+p.permitNumber+' '+p.category+' '+officerSearchTokens(p.author)).toLowerCase().includes(ppaSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -4016,7 +4024,7 @@ function renderPPAs(){
       <button class="btn btn-primary" onclick="openPpaModal()">+ Attribuer un PPA</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input id="ppa-search-box" placeholder="Rechercher un titulaire, un n° de permis..." value="${escapeHtml(ppaSearch)}" oninput="ppaSearch=this.value;render()"></div>
+      <div class="field search-input"><input id="ppa-search-box" placeholder="Rechercher un titulaire, un n° de permis, un agent..." value="${escapeHtml(ppaSearch)}" oninput="ppaSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -4078,12 +4086,18 @@ function toLocalDatetimeValue(date){
   const pad = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+let reportSearch = '';
 function renderReports(){
-  const list = [...DB.reports].sort((a,b) => new Date(b.date)-new Date(a.date));
+  const list = [...DB.reports]
+    .filter(r => (r.caseNumber+' '+(r.location||'')+' '+(r.interventionType||'')+' '+officerSearchTokens(r.author)).toLowerCase().includes(reportSearch.toLowerCase()))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
       <div><div class="page-title">Rapports</div><div class="page-sub">DOSSIERS D'INCIDENTS</div></div>
       <button class="btn btn-primary" onclick="openNewReportPage()">+ Nouveau rapport</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input id="report-search-box" placeholder="Rechercher un lieu, un type d'intervention, un n° de dossier, un agent..." value="${escapeHtml(reportSearch)}" oninput="reportSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>

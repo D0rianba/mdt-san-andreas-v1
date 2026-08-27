@@ -768,7 +768,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[] };
 // Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
 // chaque niveau est éditable (Chief of Police uniquement).
 const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
@@ -832,27 +832,63 @@ function officerSearchTokens(badge){
   const o = DB.officers.find(x => x.badge === badge);
   return o ? (o.badge + ' ' + o.name) : badge;
 }
-// Valeur de configuration d'une section (Paramètres > Gestion Section) : 'all' (tout le monde,
-// valeur implicite par défaut si non configurée), 'hidden' (personne), ou un nom de grade
-// (visible à partir de ce grade).
+// Configuration d'accès d'une section (Paramètres > Gestion Section) : { rank, divisions }.
+// rank : 'all' (tout le monde, valeur implicite par défaut si non configurée), 'hidden' (personne
+// — prioritaire sur tout, y compris les divisions), ou un nom de grade (visible à partir de ce
+// grade). divisions : liste de divisions dont les membres ont accès en plus du critère de grade.
+// Conserve la compatibilité avec l'ancien format (une simple chaîne = seuil de grade seul).
+function sectionAccessConfig(key){
+  const raw = DB.settings.sectionAccess && DB.settings.sectionAccess[key];
+  if(raw == null) return { rank:'all', divisions:[] };
+  if(typeof raw === 'string') return { rank: raw, divisions:[] };
+  return { rank: raw.rank || 'all', divisions: Array.isArray(raw.divisions) ? raw.divisions : [] };
+}
 function sectionAccessValue(key){
-  return (DB.settings.sectionAccess && DB.settings.sectionAccess[key]) || 'all';
+  return sectionAccessConfig(key).rank;
 }
 function hasSectionAccess(key){
-  const v = sectionAccessValue(key);
-  if(v === 'hidden') return false;
-  if(v === 'all') return true;
-  return hasRankAtLeast(v); // v est alors un nom de grade
+  const cfg = sectionAccessConfig(key);
+  if(cfg.rank === 'hidden') return false;
+  if(cfg.rank === 'all') return true;
+  if(hasRankAtLeast(cfg.rank)) return true;
+  if(cfg.divisions.length){
+    const officer = currentOfficer();
+    if(officer && Array.isArray(officer.divisions) && officer.divisions.some(d => cfg.divisions.includes(d))) return true;
+  }
+  return false;
 }
 async function setSectionAccessValue(key, value){
   if(!isAdmin()) return;
   DB.settings.sectionAccess = DB.settings.sectionAccess || {};
-  DB.settings.sectionAccess[key] = value;
+  const current = sectionAccessConfig(key);
+  DB.settings.sectionAccess[key] = { rank: value, divisions: current.divisions };
   await saveKey('settings');
   const label = value === 'all' ? 'Visible (tous grades)' : value === 'hidden' ? 'Non visible' : `Visible à partir de ${value}`;
   await logAction('Modification accès section', `${key} → ${label}`);
   updateNavVisibility();
   render();
+}
+function openSectionDivisionsModal(key){
+  if(!isAdmin()) return;
+  const s = SECTION_REGISTRY.find(x => x.key === key);
+  if(!s) return;
+  const current = sectionAccessConfig(key);
+  showModal({
+    title: 'Accès par division — ' + s.label,
+    fields: [{ key:'divisions', label:'Divisions ayant accès', type:'multiselect', options:DIVISIONS,
+      helper:"En plus du grade minimum requis ci-contre, les membres de ces divisions ont accès à cette section (sauf si son accès est réglé sur \u00abNon visible\u00bb)." }],
+    initial: { divisions: current.divisions },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      DB.settings.sectionAccess = DB.settings.sectionAccess || {};
+      const c = sectionAccessConfig(key);
+      DB.settings.sectionAccess[key] = { rank: c.rank, divisions: data.divisions || [] };
+      await saveKey('settings');
+      await logAction('Modification accès section', `${key} → divisions : ${(data.divisions||[]).join(', ') || 'aucune'}`);
+      updateNavVisibility();
+      render();
+    }
+  });
 }
 // Nom/icône affichés dans le menu pour une section : personnalisés (Paramètres > Gestion Section)
 // si définis, sinon les valeurs par défaut de SECTION_REGISTRY.
@@ -912,18 +948,15 @@ async function resetSectionCustomization(key){
   render();
 }
 function hasDetectiveAccess(){
-  if(!SESSION) return false;
-  const v = sectionAccessValue('detectiveReports');
-  if(v === 'hidden') return false; // désactivée entièrement, y compris pour les membres de la division
-  if(v === 'all') return true;
-  if(hasRankAtLeast(v)) return true;
-  const officer = currentOfficer();
-  return !!(officer && Array.isArray(officer.divisions) && officer.divisions.includes('Detective Division'));
+  return hasSectionAccess('detectiveReports');
 }
-const DIVISIONS = [
+const DEFAULT_DIVISIONS = [
   'Air Support Division','Detective Division','K-9 Division',
   'Police Academy','Trafic Division','Special Weapons And Tactics'
 ];
+// DIVISIONS référence toujours DB.divisions (même tableau, même principe que RANK_ORDER/DB.ranks) :
+// le muter (push/splice/tri) suffit à tenir à jour la liste partout dans l'app.
+let DIVISIONS = [...DEFAULT_DIVISIONS];
 let currentPage = 'dashboard';
 
 const K = {
@@ -933,7 +966,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
-  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon',
+  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions',
   session:'session:current'
 };
 
@@ -1008,6 +1041,20 @@ async function loadAll(){
     }
   }catch(e){ DB.ranks = RANK_ORDER; }
 
+  // divisions : liste éditable (Paramètres > Division), amorcée avec la liste par défaut au tout
+  // premier lancement. DIVISIONS référence ensuite ce même tableau.
+  try{
+    const res = await window.storage.get(K.divisions, true);
+    const loaded = res && res.value ? JSON.parse(res.value) : null;
+    if(loaded && Array.isArray(loaded) && loaded.length){
+      DB.divisions = loaded;
+      DIVISIONS = DB.divisions;
+    } else {
+      DB.divisions = DIVISIONS;
+      await saveKey('divisions');
+    }
+  }catch(e){ DB.divisions = DIVISIONS; }
+
   // paramètres généraux (logos, seuils d'accès) : fusionnés avec les valeurs par défaut pour
   // rester compatibles si de nouveaux réglages sont ajoutés plus tard.
   try{
@@ -1022,9 +1069,16 @@ async function loadAll(){
   if(!DB.settings.sectionAccess || Object.keys(DB.settings.sectionAccess).length === 0){
     DB.settings.sectionAccess = {
       roster: DB.settings.captainTierMinRank || 'Captain',
-      detectiveReports: DB.settings.captainTierMinRank || 'Captain',
+      detectiveReports: { rank: DB.settings.captainTierMinRank || 'Captain', divisions: ['Detective Division'] },
       logs: RANK_ORDER[RANK_ORDER.length-1] || 'Chief of Police',
     };
+    await saveKey('settings');
+  }
+  // migration (une seule fois) : les installations déjà migrées avant l'ajout de l'accès par
+  // division gardent "Rapports Detective" au seul ancien format (chaîne = grade seul) — on la
+  // convertit au nouveau format objet pour ne pas perdre l'accès forcé de la Detective Division.
+  if(DB.settings.sectionAccess && typeof DB.settings.sectionAccess.detectiveReports === 'string'){
+    DB.settings.sectionAccess.detectiveReports = { rank: DB.settings.sectionAccess.detectiveReports, divisions: ['Detective Division'] };
     await saveKey('settings');
   }
   applyBranding();
@@ -5661,6 +5715,7 @@ function renderSettingsPage(){
 
   const tabs = [
     { key:'grades', label:'Grades' },
+    { key:'divisions', label:'Division' },
     { key:'images', label:'Images' },
     { key:'sections', label:'Gestion Section' },
   ];
@@ -5669,6 +5724,7 @@ function renderSettingsPage(){
   let body = '';
   if(settingsActiveTab === 'images') body = renderSettingsImagesTab();
   else if(settingsActiveTab === 'sections') body = renderSettingsSectionsTab();
+  else if(settingsActiveTab === 'divisions') body = renderSettingsDivisionsTab();
   else body = renderSettingsGradesTab();
 
   return `
@@ -5782,32 +5838,44 @@ function renderSettingsImagesTab(){
         </div>
       </div>
     </div>
+  `;
+}
 
-    <div class="settings-section">
-      <div class="settings-section-title">Logos des divisions</div>
-      <div class="settings-section-sub">Remplace l'icône ⌘ de chaque division sur la page Organigramme.</div>
-      ${DIVISIONS.map(div => {
-        const url = DB.settings.divisionLogos && DB.settings.divisionLogos[div];
-        const preview = url ? `<img src="${escapeHtml(url)}">` : '⌘';
-        return `
-        <div class="settings-logo-row" style="margin-bottom:14px;">
-          <div class="settings-logo-preview" style="width:44px;height:44px;border-radius:var(--radius);">${preview}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:var(--text);margin-bottom:6px;">${escapeHtml(div)}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-sm" onclick="openDivisionLogoModal('${escapeHtml(div)}')">Modifier</button>
-              ${url ? `<button class="btn btn-sm" onclick="resetDivisionLogo('${escapeHtml(div)}')">Icône par défaut</button>` : ''}
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
+function renderSettingsDivisionsTab(){
+  const rows = DIVISIONS.map(div => {
+    const holders = DB.officers.filter(o => Array.isArray(o.divisions) && o.divisions.includes(div)).length;
+    const url = DB.settings.divisionLogos && DB.settings.divisionLogos[div];
+    const preview = url ? `<img src="${escapeHtml(url)}">` : '⌘';
+    return `
+      <tr>
+        <td><div class="settings-logo-preview" style="width:34px;height:34px;border-radius:6px;font-size:13px;">${preview}</div></td>
+        <td class="row-name">${escapeHtml(div)}</td>
+        <td>${holders ? `<span class="tag tag-blue">${holders} agent${holders>1?'s':''}</span>` : '<span class="tag tag-grey">Aucun</span>'}</td>
+        <td class="row-actions">
+          <button class="icon-btn" onclick="openRenameDivisionModal('${escapeHtml(div)}')">Renommer</button>
+          <button class="icon-btn" onclick="openDivisionLogoModal('${escapeHtml(div)}')">Logo</button>
+          ${url ? `<button class="icon-btn" onclick="resetDivisionLogo('${escapeHtml(div)}')">Sans logo</button>` : ''}
+          <button class="icon-btn danger" onclick="deleteDivision('${escapeHtml(div)}')">Suppr.</button>
+        </td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="settings-section" style="max-width:820px;">
+      <div class="settings-section-title">Divisions</div>
+      <div class="settings-section-sub">Création, renommage, logo et suppression des divisions. Utilisées sur la fiche Effectifs, l'Organigramme, et pour l'accès par division (Gestion Section).</div>
+      <table>
+        <thead><tr><th style="width:44px;"></th><th>Division</th><th>Effectif</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <button class="btn" style="margin-top:12px;" onclick="openAddDivisionModal()">+ Ajouter une division</button>
     </div>
   `;
 }
 
 function renderSettingsSectionsTab(){
   const rows = SECTION_REGISTRY.map(s => {
-    const current = sectionAccessValue(s.key);
+    const cfg = sectionAccessConfig(s.key);
+    const current = cfg.rank;
     const rankOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${current===r?'selected':''}>À partir de : ${escapeHtml(r)}</option>`).join('');
     const isCustomized = !!(DB.settings.sectionOverrides && DB.settings.sectionOverrides[s.key]);
     return `
@@ -5821,18 +5889,20 @@ function renderSettingsSectionsTab(){
             ${rankOptions}
           </select>
         </td>
+        <td>${cfg.divisions.length ? cfg.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="helper-text">—</span>'}</td>
         <td class="row-actions">
+          <button class="icon-btn" onclick="openSectionDivisionsModal('${s.key}')">Divisions</button>
           <button class="icon-btn" onclick="openSectionCustomizeModal('${s.key}')">Personnaliser</button>
           ${isCustomized ? `<button class="icon-btn" onclick="resetSectionCustomization('${s.key}')">Par défaut</button>` : ''}
         </td>
       </tr>`;
   }).join('');
   return `
-    <div class="settings-section" style="max-width:920px;">
+    <div class="settings-section" style="max-width:1080px;">
       <div class="settings-section-title">Gestion Section</div>
-      <div class="settings-section-sub">Visibilité de chaque section du menu par grade, et personnalisation de son nom et de son icône dans le menu latéral. L'Accueil ainsi que Utilisateurs et Paramètres restent toujours accessibles et non personnalisables (pour éviter tout blocage).</div>
+      <div class="settings-section-sub">Visibilité de chaque section du menu par grade et/ou par division, et personnalisation de son nom et de son icône dans le menu latéral. Un accès par division s'ajoute au seuil de grade (l'un ou l'autre suffit), sauf si la section est réglée sur « Non visible ». L'Accueil ainsi que Utilisateurs et Paramètres restent toujours accessibles et non personnalisables (pour éviter tout blocage).</div>
       <table>
-        <thead><tr><th>Groupe</th><th>Section</th><th>Accès</th><th></th></tr></thead>
+        <thead><tr><th>Groupe</th><th>Section</th><th>Accès (grade)</th><th>Accès (divisions)</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -6093,6 +6163,95 @@ async function resetDivisionLogo(div){
   if(DB.settings.divisionLogos) delete DB.settings.divisionLogos[div];
   await saveKey('settings');
   await logAction('Modification logo', `Logo de la division "${div}" réinitialisé (par défaut)`);
+  render();
+}
+
+function openAddDivisionModal(){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Nouvelle division',
+    fields: [{ key:'name', label:'Nom de la division', placeholder:'Ex. Cyber Crimes Division' }],
+    initial: {},
+    submitLabel: 'Ajouter',
+    onSubmit: async (data) => {
+      const name = (data.name||'').trim();
+      if(!name){ await infoDialog('Le nom de la division est requis.'); return; }
+      if(DIVISIONS.includes(name)){ await infoDialog('Cette division existe déjà.'); return; }
+      DIVISIONS.push(name);
+      await saveKey('divisions');
+      await logAction('Ajout division', `Division "${name}" ajoutée`);
+      render();
+    }
+  });
+}
+function openRenameDivisionModal(oldName){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Renommer la division',
+    fields: [{ key:'name', label:'Nouveau nom', placeholder:oldName }],
+    initial: { name: oldName },
+    submitLabel: 'Renommer',
+    onSubmit: async (data) => { await renameDivision(oldName, (data.name||'').trim()); }
+  });
+}
+// Renomme une division et répercute le changement partout où elle est référencée : les fiches
+// Effectifs, son logo, et les accès par division déjà configurés (Gestion Section).
+async function renameDivision(oldName, newName){
+  if(!isAdmin()) return;
+  if(!newName){ await infoDialog('Le nom de la division est requis.'); return; }
+  if(newName === oldName) return;
+  const idx = DIVISIONS.indexOf(oldName);
+  if(idx === -1) return;
+  if(DIVISIONS.includes(newName)){ await infoDialog('Ce nom de division existe déjà.'); return; }
+  DIVISIONS[idx] = newName;
+
+  DB.officers.forEach(o => {
+    if(Array.isArray(o.divisions)) o.divisions = o.divisions.map(d => d === oldName ? newName : d);
+  });
+  await saveKey('officers');
+
+  if(DB.settings.divisionLogos && DB.settings.divisionLogos[oldName]){
+    DB.settings.divisionLogos[newName] = DB.settings.divisionLogos[oldName];
+    delete DB.settings.divisionLogos[oldName];
+  }
+  if(DB.settings.sectionAccess){
+    Object.values(DB.settings.sectionAccess).forEach(cfg => {
+      if(cfg && typeof cfg === 'object' && Array.isArray(cfg.divisions)){
+        cfg.divisions = cfg.divisions.map(d => d === oldName ? newName : d);
+      }
+    });
+  }
+  await saveKey('settings');
+  await saveKey('divisions');
+  await logAction('Modification division', `"${oldName}" renommée en "${newName}"`);
+  updateNavVisibility();
+  render();
+}
+async function deleteDivision(name){
+  if(!isAdmin()) return;
+  if(DIVISIONS.length <= 1){ await infoDialog('Impossible de supprimer la dernière division restante.'); return; }
+  const holders = DB.officers.filter(o => Array.isArray(o.divisions) && o.divisions.includes(name)).length;
+  if(holders){
+    await infoDialog(`Cette division est actuellement attribuée à ${holders} agent${holders>1?'s':''}. Retire-la de leur fiche avant de la supprimer.`);
+    return;
+  }
+  const ok = await confirmDialog(`Supprimer la division "${name}" ? Cette action est irréversible.`);
+  if(!ok) return;
+  const idx = DIVISIONS.indexOf(name);
+  if(idx === -1) return;
+  DIVISIONS.splice(idx, 1);
+  if(DB.settings.divisionLogos) delete DB.settings.divisionLogos[name];
+  if(DB.settings.sectionAccess){
+    Object.values(DB.settings.sectionAccess).forEach(cfg => {
+      if(cfg && typeof cfg === 'object' && Array.isArray(cfg.divisions) && cfg.divisions.includes(name)){
+        cfg.divisions = cfg.divisions.filter(d => d !== name);
+      }
+    });
+  }
+  await saveKey('divisions');
+  await saveKey('settings');
+  await logAction('Suppression division', `Division "${name}" supprimée`);
+  updateNavVisibility();
   render();
 }
 

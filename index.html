@@ -413,6 +413,14 @@
   .orgchart-div-card .odc-officer{font-size:12.5px;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border-soft);}
   .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
   .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
+
+  /* ===== PARAMÈTRES (Administration) ===== */
+  .settings-section{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;max-width:760px;}
+  .settings-section-title{font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:0.3px;text-transform:uppercase;color:var(--text);margin:0 0 4px;}
+  .settings-section-sub{font-size:12px;color:var(--text-faint);margin-bottom:14px;line-height:1.5;}
+  .settings-logo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .settings-logo-preview{width:64px;height:64px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--panel-2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:var(--font-display);color:var(--amber);font-weight:700;}
+  .settings-logo-preview img,.settings-logo-preview svg{width:100%;height:100%;object-fit:cover;}
 </style>
 </head>
 <body>
@@ -424,7 +432,7 @@
   <div id="login-screen">
     <div class="login-box">
       <div class="login-head">
-        <div class="badge-star">SA</div>
+        <div class="badge-star" id="login-badge-logo">SA</div>
         <h1>MDT — San Andreas</h1>
         <p>IDENTIFICATION TERMINAL · UNITÉ DE PATROUILLE</p>
       </div>
@@ -474,7 +482,7 @@
   <div id="force-password-screen" style="display:none;">
     <div class="login-box">
       <div class="login-head">
-        <div class="badge-star">SA</div>
+        <div class="badge-star" id="fpw-badge-logo">SA</div>
         <h1>Nouveau mot de passe</h1>
         <p>PREMIÈRE CONNEXION · SÉCURISATION DU COMPTE REQUISE</p>
       </div>
@@ -497,7 +505,7 @@
   <!-- ============ APP SHELL ============ -->
   <div id="shell" style="display:none;height:100%;flex-direction:column;">
     <div id="topbar">
-      <div class="tb-brand"><span class="tb-star">SA</span> MDT</div>
+      <div class="tb-brand"><span class="tb-star" id="tb-brand-logo">SA</span> MDT</div>
       <div class="tb-sep"></div>
       <div class="tb-unit">MATRICULE <b id="tb-callsign">—</b></div>
       <div class="tb-spacer"></div>
@@ -546,6 +554,7 @@
         <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">▥</span> Logs <span class="nav-count" id="count-logs">0</span></div>
         <div class="nav-section-label" id="nav-section-admin">Administration</div>
         <div class="nav-item" id="nav-item-users" data-page="users" onclick="goPage('users')"><span class="nav-icon">⚙</span> Utilisateurs</div>
+        <div class="nav-item" id="nav-item-settingsPage" data-page="settingsPage" onclick="goPage('settingsPage')"><span class="nav-icon">🛠</span> Paramètres</div>
       </div>
 
       <div id="content"><!-- injected --></div>
@@ -655,22 +664,29 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' } };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{} };
 let SESSION = null;
-const RANK_ORDER = [
+const DEFAULT_RANKS = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain' };
+// RANK_ORDER référence toujours DB.ranks (même tableau) : le muter (push/splice/tri) suffit à
+// tenir à jour la hiérarchie partout dans l'app, il suffit ensuite de persister via saveKey('ranks').
+let RANK_ORDER = [...DEFAULT_RANKS];
 function hasRankAtLeast(rank){
-  return SESSION && RANK_ORDER.indexOf(SESSION.rank) >= RANK_ORDER.indexOf(rank);
+  if(!SESSION) return false;
+  const idx = RANK_ORDER.indexOf(rank);
+  if(idx === -1) return false; // seuil introuvable (grade renommé/supprimé) : accès refusé par sécurité
+  return RANK_ORDER.indexOf(SESSION.rank) >= idx;
 }
 function currentOfficer(){
   return SESSION ? DB.officers.find(o => o.badge === SESSION.badge) : null;
 }
 function hasDetectiveAccess(){
   if(!SESSION) return false;
-  if(hasRankAtLeast('Captain')) return true;
+  if(hasRankAtLeast(DB.settings.captainTierMinRank)) return true;
   const officer = currentOfficer();
   return !!(officer && Array.isArray(officer.divisions) && officer.divisions.includes('Detective Division'));
 }
@@ -687,6 +703,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints',
   dispatchAssignments:'db:dispatchAssignments',
+  ranks:'db:ranks', settings:'db:settings',
   session:'session:current'
 };
 
@@ -736,6 +753,31 @@ async function loadAll(){
     const res = await window.storage.get(K.dispatchAssignments, true);
     DB.dispatchAssignments = res && res.value ? JSON.parse(res.value) : { dispatcherBadge:'', supervisorBadge:'' };
   }catch(e){ DB.dispatchAssignments = { dispatcherBadge:'', supervisorBadge:'' }; }
+
+  // grades du service : liste éditable (page Administration > Paramètres), amorcée avec la
+  // hiérarchie par défaut au tout premier lancement. RANK_ORDER référence ensuite ce même tableau.
+  try{
+    const res = await window.storage.get(K.ranks, true);
+    const loaded = res && res.value ? JSON.parse(res.value) : null;
+    if(loaded && Array.isArray(loaded) && loaded.length){
+      DB.ranks = loaded;
+      RANK_ORDER = DB.ranks;
+    } else {
+      DB.ranks = RANK_ORDER;
+      await saveKey('ranks');
+    }
+  }catch(e){ DB.ranks = RANK_ORDER; }
+
+  // paramètres généraux (logos, seuils d'accès) : fusionnés avec les valeurs par défaut pour
+  // rester compatibles si de nouveaux réglages sont ajoutés plus tard.
+  try{
+    const res = await window.storage.get(K.settings, true);
+    const loaded = res && res.value ? JSON.parse(res.value) : null;
+    DB.settings = Object.assign({}, DEFAULT_SETTINGS, loaded || {});
+    if(!loaded) await saveKey('settings');
+  }catch(e){ DB.settings = Object.assign({}, DEFAULT_SETTINGS); }
+  applyBranding();
+  populateLoginRankOptions();
   // migration : ancien libellé de catégorie renommé
   let migrated = false;
   DB.penalCode.forEach(p => {
@@ -811,6 +853,25 @@ async function saveKey(key){
     console.error('Storage error', key, e);
     return false;
   }
+}
+// Applique le logo personnalisé (Paramètres > Logo du MDT) sur les écrans où le badge "SA" apparaît,
+// ou restaure le badge par défaut si aucun logo personnalisé n'est configuré.
+function applyBranding(){
+  const url = DB.settings && DB.settings.appLogoUrl;
+  const html = url ? `<img src="${escapeHtml(url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : 'SA';
+  ['login-badge-logo','fpw-badge-logo','tb-brand-logo'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = html;
+  });
+}
+// Reconstruit la liste déroulante des grades de l'écran de connexion (mode local, sans Supabase)
+// à partir de la hiérarchie actuelle, pour qu'elle reste à jour si l'administrateur modifie les grades.
+function populateLoginRankOptions(){
+  const sel = document.getElementById('login-rank');
+  if(!sel) return;
+  const previous = sel.value;
+  sel.innerHTML = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  if(RANK_ORDER.includes(previous)) sel.value = previous;
 }
 async function logAction(action, details){
   DB.logs.push({ id: uid('log'), action, details: details||'', author: SESSION ? SESSION.callsign : '—', date: nowISO() });
@@ -1033,13 +1094,13 @@ function enterApp(){
   document.getElementById('shell').style.display = 'flex';
   document.getElementById('tb-callsign').textContent = SESSION.badge;
   document.getElementById('tb-user-name').textContent = SESSION.rank + ' ' + SESSION.name;
-  const boloAllowed = hasRankAtLeast('Sergeant I');
+  const boloAllowed = hasRankAtLeast(DB.settings.boloMinRank);
   document.getElementById('bolo-add-btn').style.display = boloAllowed ? 'flex' : 'none';
   document.getElementById('bolo-reset-btn').style.display = boloAllowed ? 'flex' : 'none';
   const detectiveAllowed = hasDetectiveAccess();
   document.getElementById('nav-section-detective').style.display = detectiveAllowed ? 'block' : 'none';
   document.getElementById('nav-item-detectiveReports').style.display = detectiveAllowed ? 'flex' : 'none';
-  const rosterAllowed = hasRankAtLeast('Captain');
+  const rosterAllowed = hasRankAtLeast(DB.settings.captainTierMinRank);
   document.getElementById('nav-section-roster').style.display = rosterAllowed ? 'block' : 'none';
   document.getElementById('nav-item-roster').style.display = rosterAllowed ? 'flex' : 'none';
   const logsAllowed = isChief();
@@ -1048,6 +1109,7 @@ function enterApp(){
   const adminAllowed = isAdmin();
   document.getElementById('nav-section-admin').style.display = adminAllowed ? 'block' : 'none';
   document.getElementById('nav-item-users').style.display = adminAllowed ? 'flex' : 'none';
+  document.getElementById('nav-item-settingsPage').style.display = adminAllowed ? 'flex' : 'none';
   document.getElementById('tb-changepw-btn').style.display = _supabaseConfigured ? 'inline-flex' : 'none';
   updateCounts();
   goPage('dashboard');
@@ -1055,8 +1117,8 @@ function enterApp(){
 
 /* ===================== NAV ===================== */
 function goPage(page){
-  if(page === 'roster' && !hasRankAtLeast('Captain')){
-    infoDialog("Accès réservé aux grades Captain et au-dessus.");
+  if(page === 'roster' && !hasRankAtLeast(DB.settings.captainTierMinRank)){
+    infoDialog(`Accès réservé aux grades ${DB.settings.captainTierMinRank} et au-dessus.`);
     page = 'dashboard';
   }
   if(page === 'detectiveReports' && !hasDetectiveAccess()){
@@ -1068,6 +1130,10 @@ function goPage(page){
     page = 'dashboard';
   }
   if(page === 'users' && !isAdmin()){
+    infoDialog("Accès réservé aux administrateurs.");
+    page = 'dashboard';
+  }
+  if(page === 'settingsPage' && !isAdmin()){
     infoDialog("Accès réservé aux administrateurs.");
     page = 'dashboard';
   }
@@ -1141,8 +1207,8 @@ function renderTicker(){
 }
 
 function openBoloModal(){
-  if(!hasRankAtLeast('Sergeant I')){
-    infoDialog("Cette action est réservée au grade Sergeant I et au-dessus.");
+  if(!hasRankAtLeast(DB.settings.boloMinRank)){
+    infoDialog(`Cette action est réservée au grade ${DB.settings.boloMinRank} et au-dessus.`);
     return;
   }
   showModal({
@@ -1161,8 +1227,8 @@ function openBoloModal(){
 }
 
 async function resetBolos(){
-  if(!hasRankAtLeast('Sergeant I')){
-    await infoDialog("Cette action est réservée au grade Sergeant I et au-dessus.");
+  if(!hasRankAtLeast(DB.settings.boloMinRank)){
+    await infoDialog(`Cette action est réservée au grade ${DB.settings.boloMinRank} et au-dessus.`);
     return;
   }
   if(DB.bolos.length === 0){
@@ -1463,6 +1529,7 @@ function render(){
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
   else if(currentPage === 'logs') c.innerHTML = renderLogs();
   else if(currentPage === 'users') c.innerHTML = renderUsers();
+  else if(currentPage === 'settingsPage') c.innerHTML = renderSettingsPage();
   updateCounts();
   renderTicker();
   if(focusInfo){
@@ -4116,7 +4183,7 @@ function openWarrantModal(id){
 
 /* ===================== CODE PÉNAL ===================== */
 function isChief(){
-  return SESSION && SESSION.rank === 'Chief of Police';
+  return !!(SESSION && RANK_ORDER.length && SESSION.rank === RANK_ORDER[RANK_ORDER.length-1]);
 }
 let penalCodeSearch = '';
 let penalCodeExpanded = new Set();
@@ -4233,7 +4300,7 @@ function openPenalCodeModal(id){
 /* ===================== ROSTER ===================== */
 function renderRoster(){
   const list = [...DB.officers].sort((a,b) => new Date(b.lastSeen)-new Date(a.lastSeen));
-  const canEditDivision = hasRankAtLeast('Captain');
+  const canEditDivision = hasRankAtLeast(DB.settings.captainTierMinRank);
   return `
     <div class="page-head">
       <div><div class="page-title">Effectifs</div><div class="page-sub">AGENTS ENREGISTRÉS SUR LE TERMINAL</div></div>
@@ -4312,8 +4379,8 @@ function renderOrgChart(){
   `;
 }
 function openDivisionModal(badge){
-  if(!hasRankAtLeast('Captain')){
-    infoDialog("Seuls les grades Captain et au-dessus peuvent modifier les divisions.");
+  if(!hasRankAtLeast(DB.settings.captainTierMinRank)){
+    infoDialog(`Seuls les grades ${DB.settings.captainTierMinRank} et au-dessus peuvent modifier les divisions.`);
     return;
   }
   const officer = DB.officers.find(o => o.badge === badge);
@@ -4326,7 +4393,7 @@ function openDivisionModal(badge){
     ],
     initial: { divisions: officer.divisions || [] },
     onSubmit: async (data) => {
-      if(!hasRankAtLeast('Captain')) return; // double vérification avant écriture
+      if(!hasRankAtLeast(DB.settings.captainTierMinRank)) return; // double vérification avant écriture
       officer.divisions = data.divisions || [];
       await saveKey('officers');
       await logAction('Modification divisions', `${officer.name} (${officer.badge}) — ${(data.divisions||[]).join(', ') || 'Aucune'}`);
@@ -4436,7 +4503,7 @@ function openCreateUserModal(){
       { key:'isAdmin', label:'Droits administrateur', type:'select', options:[{value:'non',label:'Non'},{value:'oui',label:'Oui'}] },
       { key:'tempPassword', label:'Mot de passe temporaire', placeholder:'Communiqué à l\u2019agent' },
     ],
-    initial: { rank:'Police Officer I', isAdmin:'non', tempPassword },
+    initial: { rank:RANK_ORDER[0], isAdmin:'non', tempPassword },
     submitLabel: 'Créer',
     onSubmit: async (data) => {
       if(!data.matricule || !data.name){ await infoDialog('Matricule et nom sont requis.'); return; }
@@ -4519,6 +4586,279 @@ async function deleteAdminUser(matricule){
   }catch(e){
     await infoDialog(describeAuthError(e));
   }
+}
+
+/* ===================== PARAMÈTRES (Administration) =====================
+   Grades du service (ordre, renommage, création/suppression), seuils de grade
+   utilisés pour certains droits d'accès, et logos personnalisables (MDT + documents publics). */
+function renderSettingsPage(){
+  if(!isAdmin()) return `<div class="empty-state"><div class="em-icon">🛠</div>Accès réservé aux administrateurs.</div>`;
+
+  const displayRanks = [...RANK_ORDER].reverse(); // du plus haut au plus bas, pour une lecture hiérarchique naturelle
+  const rankRows = displayRanks.map((rank, dispIdx) => {
+    const holders = DB.officers.filter(o => o.rank === rank).length;
+    const isTop = dispIdx === 0;
+    const isBottom = dispIdx === displayRanks.length - 1;
+    return `
+      <tr>
+        <td class="mono" style="color:var(--text-faint);">${dispIdx+1}</td>
+        <td class="row-name">${escapeHtml(rank)}</td>
+        <td>${holders ? `<span class="tag tag-blue">${holders} agent${holders>1?'s':''}</span>` : '<span class="tag tag-grey">Aucun</span>'}</td>
+        <td class="row-actions">
+          <button class="icon-btn" ${isTop?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','up')" title="Monter dans la hiérarchie">↑</button>
+          <button class="icon-btn" ${isBottom?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','down')" title="Descendre dans la hiérarchie">↓</button>
+          <button class="icon-btn" onclick="openRenameRankModal('${escapeHtml(rank)}')">Renommer</button>
+          <button class="icon-btn danger" onclick="deleteRank('${escapeHtml(rank)}')">Suppr.</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const boloOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.boloMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
+  const captainOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${DB.settings.captainTierMinRank===r?'selected':''}>${escapeHtml(r)}</option>`).join('');
+
+  const appLogoPreview = DB.settings.appLogoUrl ? `<img src="${escapeHtml(DB.settings.appLogoUrl)}">` : 'SA';
+  const pubdocLogoPreview = DB.settings.pubdocLogoUrl ? `<img src="${escapeHtml(DB.settings.pubdocLogoUrl)}">` : pubdocBadgeSvg();
+
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Paramètres</div><div class="page-sub">CONFIGURATION RÉSERVÉE AUX ADMINISTRATEURS</div></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Grades du service</div>
+      <div class="settings-section-sub">Ordre, renommage, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
+      <table>
+        <thead><tr><th style="width:36px;"></th><th>Grade</th><th>Effectif</th><th></th></tr></thead>
+        <tbody>${rankRows}</tbody>
+      </table>
+      <button class="btn" style="margin-top:12px;" onclick="openAddRankModal()">+ Ajouter un grade</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Seuils d'accès</div>
+      <div class="settings-section-sub">Grade minimum requis pour certaines actions. Reste valide automatiquement si le grade choisi est renommé.</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Gestion des avis (BOLO)</label>
+          <select onchange="setThreshold('boloMinRank', this.value)">${boloOptions}</select>
+        </div>
+        <div class="field">
+          <label>Effectifs / Divisions / accès Detective forcé</label>
+          <select onchange="setThreshold('captainTierMinRank', this.value)">${captainOptions}</select>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Logo du MDT</div>
+      <div class="settings-section-sub">Affiché sur l'écran de connexion et dans la barre du haut de l'application.</div>
+      <div class="settings-logo-row">
+        <div class="settings-logo-preview">${appLogoPreview}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" onclick="openAppLogoModal()">Modifier</button>
+          ${DB.settings.appLogoUrl ? `<button class="btn" onclick="resetAppLogo()">Revenir au badge par défaut</button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Logo des documents publics</div>
+      <div class="settings-section-sub">Affiché sur les rapports d'arrestation, plaintes et rapports d'enquête consultables via un lien public.</div>
+      <div class="settings-logo-row">
+        <div class="settings-logo-preview">${pubdocLogoPreview}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" onclick="openPubdocLogoModal()">Modifier</button>
+          ${DB.settings.pubdocLogoUrl ? `<button class="btn" onclick="resetPubdocLogo()">Revenir au badge par défaut</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function moveRank(rank, dir){
+  if(!isAdmin()) return;
+  const idx = RANK_ORDER.indexOf(rank);
+  if(idx === -1) return;
+  const targetIdx = dir === 'up' ? idx + 1 : idx - 1;
+  if(targetIdx < 0 || targetIdx >= RANK_ORDER.length) return;
+  [RANK_ORDER[idx], RANK_ORDER[targetIdx]] = [RANK_ORDER[targetIdx], RANK_ORDER[idx]];
+  await saveKey('ranks');
+  await logAction('Réorganisation grades', `"${rank}" déplacé (${dir === 'up' ? 'monté' : 'descendu'})`);
+  render();
+}
+
+function openRenameRankModal(rank){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Renommer le grade',
+    fields: [{ key:'name', label:'Nouveau nom', placeholder:rank }],
+    initial: { name: rank },
+    submitLabel: 'Renommer',
+    onSubmit: async (data) => { await renameRank(rank, (data.name||'').trim()); }
+  });
+}
+async function renameRank(oldName, newName){
+  if(!isAdmin()) return;
+  if(!newName){ infoDialog('Le nom du grade est requis.'); return; }
+  if(newName === oldName) return;
+  if(RANK_ORDER.includes(newName)){ infoDialog('Ce nom de grade existe déjà.'); return; }
+  const idx = RANK_ORDER.indexOf(oldName);
+  if(idx === -1) return;
+  // Synchronise d'abord les comptes Supabase (mode déployé) : si ça échoue, on n'applique rien
+  // en local pour éviter que le grade local et le grade des comptes divergent.
+  if(_supabaseConfigured){
+    try{
+      const adminPassword = await requireSessionPassword();
+      const { error } = await _sb.rpc('mdt_admin_update_rank', {
+        p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+        p_old_rank: oldName, p_new_rank: newName
+      });
+      if(error) throw error;
+    }catch(e){
+      await infoDialog(describeAuthError(e));
+      return;
+    }
+  }
+  RANK_ORDER[idx] = newName;
+  DB.officers.forEach(o => { if(o.rank === oldName) o.rank = newName; });
+  if(SESSION && SESSION.rank === oldName){
+    SESSION.rank = newName;
+    await saveSession(SESSION);
+    const tbUserName = document.getElementById('tb-user-name');
+    if(tbUserName) tbUserName.textContent = SESSION.rank + ' ' + SESSION.name;
+  }
+  if(DB.settings.boloMinRank === oldName) DB.settings.boloMinRank = newName;
+  if(DB.settings.captainTierMinRank === oldName) DB.settings.captainTierMinRank = newName;
+  await saveKey('ranks');
+  await saveKey('officers');
+  await saveKey('settings');
+  await logAction('Modification grade', `"${oldName}" renommé en "${newName}"` + (_supabaseConfigured ? ' (comptes Supabase synchronisés)' : ''));
+  render();
+}
+
+function openAddRankModal(){
+  if(!isAdmin()) return;
+  const afterOptions = [{ value:'__top__', label:'Au sommet (grade le plus élevé)' }]
+    .concat([...RANK_ORDER].reverse().map(r => ({ value:'after:'+r, label:'Juste en dessous de "'+r+'"' })));
+  showModal({
+    title: 'Nouveau grade',
+    fields: [
+      { key:'name', label:'Nom du grade', placeholder:'Ex. Major' },
+      { key:'position', label:'Position dans la hiérarchie', type:'select', options: afterOptions },
+    ],
+    initial: { position: '__top__' },
+    submitLabel: 'Ajouter',
+    onSubmit: async (data) => {
+      const name = (data.name||'').trim();
+      if(!name){ infoDialog('Le nom du grade est requis.'); return; }
+      if(RANK_ORDER.includes(name)){ infoDialog('Ce grade existe déjà.'); return; }
+      if(data.position === '__top__'){
+        RANK_ORDER.push(name);
+      } else {
+        const after = data.position.replace('after:','');
+        const idx = RANK_ORDER.indexOf(after);
+        if(idx === -1) RANK_ORDER.push(name);
+        else RANK_ORDER.splice(idx, 0, name);
+      }
+      await saveKey('ranks');
+      await logAction('Ajout grade', `Grade "${name}" ajouté`);
+      render();
+    }
+  });
+}
+
+async function deleteRank(rank){
+  if(!isAdmin()) return;
+  if(RANK_ORDER.length <= 1){ infoDialog('Impossible de supprimer le dernier grade restant.'); return; }
+  const officerHolders = DB.officers.filter(o => o.rank === rank).length;
+  let supabaseHolders = 0;
+  if(_supabaseConfigured){
+    try{
+      const adminPassword = await requireSessionPassword();
+      const { data, error } = await _sb.rpc('mdt_admin_list_users', { p_admin_matricule: SESSION.badge, p_admin_password: adminPassword });
+      if(error) throw error;
+      supabaseHolders = (data||[]).filter(u => u.rank === rank).length;
+    }catch(e){
+      await infoDialog(describeAuthError(e));
+      return;
+    }
+  }
+  const holders = Math.max(officerHolders, supabaseHolders);
+  if(holders){
+    infoDialog(`Ce grade est actuellement attribué à ${holders} agent${holders>1?'s':''}. Modifie leur grade avant de le supprimer.`);
+    return;
+  }
+  if(DB.settings.boloMinRank === rank || DB.settings.captainTierMinRank === rank){
+    infoDialog("Ce grade est utilisé comme seuil d'accès dans les Paramètres. Change ce seuil avant de le supprimer.");
+    return;
+  }
+  const ok = await confirmDialog(`Supprimer le grade "${rank}" ? Cette action est irréversible.`);
+  if(!ok) return;
+  const idx = RANK_ORDER.indexOf(rank);
+  if(idx === -1) return;
+  RANK_ORDER.splice(idx, 1);
+  await saveKey('ranks');
+  await logAction('Suppression grade', `Grade "${rank}" supprimé`);
+  render();
+}
+
+async function setThreshold(key, value){
+  if(!isAdmin()) return;
+  DB.settings[key] = value;
+  await saveKey('settings');
+  await logAction('Modification seuil', `${key === 'boloMinRank' ? 'Seuil BOLO' : 'Seuil Effectifs/Divisions'} → ${value}`);
+  render();
+}
+
+function openAppLogoModal(){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Logo du MDT',
+    fields: [{ key:'logo', label:'Image', type:'image-upload', helper:"Utilisé sur l'écran de connexion et la barre du haut. L'image est automatiquement recadrée au format carré." }],
+    initial: { logo: DB.settings.appLogoUrl || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      DB.settings.appLogoUrl = data.logo || '';
+      await saveKey('settings');
+      applyBranding();
+      await logAction('Modification logo', 'Logo du MDT mis à jour');
+      render();
+    }
+  });
+}
+async function resetAppLogo(){
+  if(!isAdmin()) return;
+  const ok = await confirmDialog('Revenir au badge par défaut pour le logo du MDT ?');
+  if(!ok) return;
+  DB.settings.appLogoUrl = '';
+  await saveKey('settings');
+  applyBranding();
+  await logAction('Modification logo', 'Logo du MDT réinitialisé (par défaut)');
+  render();
+}
+function openPubdocLogoModal(){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Logo des documents publics',
+    fields: [{ key:'logo', label:'Image', type:'image-upload', helper:"Utilisé sur les rapports et plaintes consultables via un lien public. L'image est automatiquement recadrée au format carré." }],
+    initial: { logo: DB.settings.pubdocLogoUrl || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      DB.settings.pubdocLogoUrl = data.logo || '';
+      await saveKey('settings');
+      await logAction('Modification logo', 'Logo des documents publics mis à jour');
+      render();
+    }
+  });
+}
+async function resetPubdocLogo(){
+  if(!isAdmin()) return;
+  const ok = await confirmDialog('Revenir au badge par défaut pour le logo des documents publics ?');
+  if(!ok) return;
+  DB.settings.pubdocLogoUrl = '';
+  await saveKey('settings');
+  await logAction('Modification logo', 'Logo des documents publics réinitialisé (par défaut)');
+  render();
 }
 
 /* ===================== DELETE ===================== */
@@ -4610,6 +4950,8 @@ function publicPenalCategoryLabel(cat){
   return cat || '—';
 }
 function pubdocBadgeSvg(){
+  const url = DB.settings && DB.settings.pubdocLogoUrl;
+  if(url) return `<img src="${escapeHtml(url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="46" fill="#ffffff" stroke="#c8a24a" stroke-width="3"/>
     <circle cx="50" cy="50" r="38" fill="none" stroke="#c8a24a" stroke-width="1"/>

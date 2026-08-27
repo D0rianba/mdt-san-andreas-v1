@@ -1284,7 +1284,7 @@ function filterCitizenCombo(inputEl){
     return;
   }
   const matches = DB.citizens
-    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .filter(c => `${c.firstName} ${c.lastName} ${c.phone||''}`.toLowerCase().includes(query))
     .slice(0, 8);
   if(!matches.length){
     resultsEl.innerHTML = `<div class="citizen-combo-empty">Aucun citoyen ne correspond.</div>`;
@@ -2071,7 +2071,7 @@ function renderDashboard(){
 let citizenSearch = '';
 function renderCitizens(){
   const list = DB.citizens.filter(c =>
-    (c.firstName+' '+c.lastName+' '+c.plate).toLowerCase().includes(citizenSearch.toLowerCase())
+    (c.firstName+' '+c.lastName+' '+c.plate+' '+(c.phone||'')).toLowerCase().includes(citizenSearch.toLowerCase())
   ).sort((a,b) => new Date(b.date)-new Date(a.date));
 
   return `
@@ -2080,7 +2080,7 @@ function renderCitizens(){
       <button class="btn btn-primary" onclick="openCitizenModal()">+ Nouvelle fiche</button>
     </div>
     <div class="toolbar">
-      <div class="field search-input"><input placeholder="Rechercher un nom, prénom..." value="${escapeHtml(citizenSearch)}" oninput="citizenSearch=this.value;render()"></div>
+      <div class="field search-input"><input placeholder="Rechercher un nom, prénom, numéro de téléphone..." value="${escapeHtml(citizenSearch)}" oninput="citizenSearch=this.value;render()"></div>
     </div>
     ${list.length ? `
     <table>
@@ -2887,7 +2887,7 @@ function filterSuspectSearch(inputEl){
   if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
   const matches = DB.citizens
     .filter(c => !arrestFormDraft.suspectIds.includes(c.id))
-    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .filter(c => `${c.firstName} ${c.lastName} ${c.phone||''}`.toLowerCase().includes(query))
     .slice(0, 8);
   resultsEl.innerHTML = matches.length
     ? matches.map(c => `<div class="citizen-combo-item" data-citizen-id="${escapeHtml(c.id)}" onmousedown="addSuspectFromEl(this)">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)} <span style="color:var(--text-faint);">${c.dob ? '— '+escapeHtml(c.dob) : '— DDN non renseignée'}</span></div>`).join('')
@@ -3379,7 +3379,7 @@ function filterComplaintSuspectSearch(inputEl){
   if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
   const matches = DB.citizens
     .filter(c => !complaintFormDraft.suspectIds.includes(c.id))
-    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .filter(c => `${c.firstName} ${c.lastName} ${c.phone||''}`.toLowerCase().includes(query))
     .slice(0, 8);
   resultsEl.innerHTML = matches.length
     ? matches.map(c => `<div class="citizen-combo-item" data-citizen-id="${escapeHtml(c.id)}" onmousedown="addComplaintSuspectFromEl(this)">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)} <span style="color:var(--text-faint);">${c.dob ? '— '+escapeHtml(c.dob) : '— DDN non renseignée'}</span></div>`).join('')

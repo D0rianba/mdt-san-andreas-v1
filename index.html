@@ -478,7 +478,8 @@
       <div class="tb-clock" id="tb-clock">--:--:--</div>
       <div class="tb-sep"></div>
       <div class="tb-user"><span class="status-dot"></span><span id="tb-user-name">—</span></div>
-      <button class="btn btn-sm" id="tb-changepw-btn" style="margin-left:10px;display:none;" onclick="openChangePasswordModal()">Mot de passe</button>
+      <button class="btn btn-sm" style="margin-left:10px;" onclick="openChangeNameModal()">Modifier mon nom</button>
+      <button class="btn btn-sm" id="tb-changepw-btn" style="margin-left:6px;display:none;" onclick="openChangePasswordModal()">Mot de passe</button>
       <button class="btn btn-sm" style="margin-left:6px;" onclick="doLogout()">Déconnexion</button>
     </div>
 
@@ -627,7 +628,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' } };
 let SESSION = null;
 const RANK_ORDER = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
@@ -658,6 +659,7 @@ const K = {
   detectiveReports:'db:detectiveReports', logs:'db:logs', events:'db:events', dispatch:'db:dispatch',
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints',
+  dispatchAssignments:'db:dispatchAssignments',
   session:'session:current'
 };
 
@@ -702,6 +704,11 @@ async function loadAll(){
       DB.orgMapImage = res && res.value ? JSON.parse(res.value) : null;
     }catch(e){ DB.orgMapImage = null; }
   }
+  // dispatchAssignments n'est pas non plus une liste mais un objet unique {dispatcherBadge, supervisorBadge}
+  try{
+    const res = await window.storage.get(K.dispatchAssignments, true);
+    DB.dispatchAssignments = res && res.value ? JSON.parse(res.value) : { dispatcherBadge:'', supervisorBadge:'' };
+  }catch(e){ DB.dispatchAssignments = { dispatcherBadge:'', supervisorBadge:'' }; }
   // migration : ancien libellé de catégorie renommé
   let migrated = false;
   DB.penalCode.forEach(p => {
@@ -818,6 +825,7 @@ function describeAuthError(e){
   if(msg.includes('ACCES_REFUSE')) return "Ce compte n'a pas les droits administrateur.";
   if(msg.includes('MATRICULE_EXISTANT')) return 'Ce matricule existe déjà.';
   if(msg.includes('MOT_DE_PASSE_TROP_COURT')) return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if(msg.includes('NOM_INVALIDE')) return 'Le nom doit contenir au moins 2 caractères.';
   if(msg.includes('UTILISATEUR_INTROUVABLE')) return 'Utilisateur introuvable.';
   if(msg.includes('AUTO_SUPPRESSION_INTERDITE')) return 'Vous ne pouvez pas supprimer votre propre compte.';
   if(msg.includes('AUTO_RETROGRADATION_INTERDITE')) return 'Vous ne pouvez pas retirer vos propres droits administrateur.';
@@ -929,6 +937,33 @@ async function submitForcedPasswordChange(){
   }catch(e){
     err.textContent = describeAuthError(e);
   }
+}
+
+async function openChangeNameModal(){
+  showModal({
+    title: 'Modifier mon nom',
+    fields: [{ key:'name', label:'Nom complet', placeholder:'Ex. J. Rivera' }],
+    initial: { name: SESSION.name },
+    submitLabel: 'Valider',
+    onSubmit: async (data) => {
+      const newName = (data.name || '').trim();
+      if(newName.length < 2){ await infoDialog('Le nom doit contenir au moins 2 caractères.'); return; }
+      try{
+        if(_supabaseConfigured){
+          const password = await requireSessionPassword();
+          const { error } = await _sb.rpc('mdt_update_name', { p_matricule: SESSION.badge, p_password: password, p_new_name: newName });
+          if(error) throw error;
+        }
+        SESSION.name = newName;
+        await syncOfficerRecord();
+        await saveSession(SESSION);
+        await logAction('Modification du nom', newName);
+        document.getElementById('tb-user-name').textContent = SESSION.rank + ' ' + SESSION.name;
+      }catch(e){
+        await infoDialog(describeAuthError(e));
+      }
+    }
+  });
 }
 
 async function openChangePasswordModal(){
@@ -1488,15 +1523,12 @@ function renderDispatch(){
 
   const callCard = (d) => {
     const assignedUnitObjs = d.assignedUnits || []; // [{id, name}] — le nom est figé au moment de l'assignation
-    const supervisorOfficer = d.supervisorBadge ? DB.officers.find(o => o.badge === d.supervisorBadge) : null;
-    const dispatcherOfficer = d.dispatcherBadge ? DB.officers.find(o => o.badge === d.dispatcherBadge) : null;
     return `
     <div class="dispatch-card" style="--dispatch-color:${dispatchPriorityColor(d.priority)};">
       <div class="dispatch-head">
         <div>
           <div class="dispatch-title">${escapeHtml(d.type)}</div>
           <div class="dispatch-meta">${escapeHtml(d.location||'Localisation non précisée')} · ${fmtDate(d.date)} · Signalé par ${escapeHtml(d.author)}</div>
-          ${(supervisorOfficer || dispatcherOfficer) ? `<div class="dispatch-meta">${supervisorOfficer ? 'Superviseur : [' + escapeHtml(supervisorOfficer.badge) + '] ' + escapeHtml(supervisorOfficer.name) : ''}${supervisorOfficer && dispatcherOfficer ? ' · ' : ''}${dispatcherOfficer ? 'Dispatcheur : [' + escapeHtml(dispatcherOfficer.badge) + '] ' + escapeHtml(dispatcherOfficer.name) : ''}</div>` : ''}
         </div>
         <div style="display:flex;gap:6px;flex:none;">${dispatchPriorityTag(d.priority)}${dispatchStatusTag(d.status)}</div>
       </div>
@@ -1521,6 +1553,28 @@ function renderDispatch(){
   const waiting = DB.officers.filter(o => o.dutyStatus === 'waiting');
   const officer = currentOfficer();
   const onShift = !!(officer && officer.dutyStatus && officer.dutyStatus !== 'off');
+  const dispatchAssignments = DB.dispatchAssignments || { dispatcherBadge:'', supervisorBadge:'' };
+  const dutyDispatcherOfficer = dispatchAssignments.dispatcherBadge ? DB.officers.find(o => o.badge === dispatchAssignments.dispatcherBadge) : null;
+  const dutySupervisorOfficer = dispatchAssignments.supervisorBadge ? DB.officers.find(o => o.badge === dispatchAssignments.supervisorBadge) : null;
+
+  const roleSearchPanel = (role, icon, label, current) => `
+    <div class="dispatch-panel" style="margin-top:16px;">
+      <div class="dispatch-panel-head"><div class="left">${icon} ${label}</div></div>
+      <div class="dispatch-panel-body">
+        <div class="citizen-combo">
+          <input type="text" id="dispatch-role-${role}" class="citizen-combo-input" autocomplete="off"
+            placeholder="${DB.officers.length ? 'Rechercher un agent par nom ou matricule...' : 'Aucun agent enregistré'}"
+            oninput="filterDispatchRoleSearch(this,'${role}')" onfocus="filterDispatchRoleSearch(this,'${role}')" onblur="hideCitizenComboLater(this)">
+          <div class="citizen-combo-results" id="dispatch-role-${role}-results"></div>
+        </div>
+        ${current ? `
+        <div class="duty-tag" style="cursor:default;margin-top:8px;">
+          <span class="duty-badge-num">${escapeHtml(current.badge)}</span>
+          <span class="duty-name">${escapeHtml(current.name)}</span>
+          <span style="margin-left:auto;cursor:pointer;color:var(--text-faint);" onclick="clearDispatchRole('${role}')" title="Retirer">✕</span>
+        </div>` : `<div class="helper-text" style="margin-top:8px;">Aucun agent désigné.</div>`}
+      </div>
+    </div>`;
 
   const officerTag = (o, onClickFn) => `
     <div class="duty-tag" onclick="${onClickFn}('${o.badge}')">
@@ -1593,6 +1647,8 @@ function renderDispatch(){
             ${onDuty.length ? onDuty.map(o => officerTag(o, 'moveOfficerToWaiting')).join('') : `<div class="helper-text">Aucun agent en service.</div>`}
           </div>
         </div>
+        ${roleSearchPanel('dispatcherBadge', '🎧', 'Dispatcheur', dutyDispatcherOfficer)}
+        ${roleSearchPanel('supervisorBadge', '🧭', 'Superviseur', dutySupervisorOfficer)}
       </div>
     </div>
     ${(closed.length || endedUnits.length) ? `
@@ -1626,6 +1682,37 @@ function renderDispatch(){
     </div>` : ''}
   `;
 }
+/* Recherche d'agent en direct pour désigner le Dispatcheur / Superviseur de service
+   (même principe que la recherche de citoyens/agents ailleurs dans l'app, mais utilisée
+   directement sur la page Dispatch plutôt que dans une modale). */
+function filterDispatchRoleSearch(inputEl, role){
+  const resultsEl = document.getElementById(inputEl.id + '-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  const matches = DB.officers
+    .filter(o => `${o.name} ${o.badge}`.toLowerCase().includes(query))
+    .slice(0, 8);
+  resultsEl.innerHTML = matches.length
+    ? matches.map(o => `<div class="citizen-combo-item" data-officer-badge="${escapeHtml(o.badge)}" onmousedown="selectDispatchRole('${role}', this)">[${escapeHtml(o.badge)}] ${escapeHtml(o.name)} <span style="color:var(--text-faint);">${o.rank ? '— '+escapeHtml(o.rank) : ''}</span></div>`).join('')
+    : `<div class="citizen-combo-empty">Aucun agent ne correspond.</div>`;
+  resultsEl.style.display = 'block';
+}
+async function selectDispatchRole(role, el){
+  const badge = el.dataset.officerBadge;
+  DB.dispatchAssignments = DB.dispatchAssignments || { dispatcherBadge:'', supervisorBadge:'' };
+  DB.dispatchAssignments[role] = badge;
+  await saveKey('dispatchAssignments');
+  const officer = DB.officers.find(o => o.badge === badge);
+  await logAction(role === 'dispatcherBadge' ? 'Désignation dispatcheur' : 'Désignation superviseur', officer ? `${officer.name} (${officer.badge})` : badge);
+  render();
+}
+async function clearDispatchRole(role){
+  DB.dispatchAssignments = DB.dispatchAssignments || { dispatcherBadge:'', supervisorBadge:'' };
+  DB.dispatchAssignments[role] = '';
+  await saveKey('dispatchAssignments');
+  render();
+}
+
 async function toggleDuty(){
   const officer = currentOfficer();
   if(!officer){ await infoDialog("Impossible de te retrouver dans les effectifs."); return; }
@@ -1778,8 +1865,6 @@ function openDispatchModal(id){
       { key:'priority', label:'Priorité', type:'select', options:DISPATCH_PRIORITIES },
       { key:'location', label:'Localisation' },
       { key:'description', label:'Détails', type:'textarea' },
-      { key:'supervisorBadge', label:'Superviseur', type:'officer-search' },
-      { key:'dispatcherBadge', label:'Dispatcheur', type:'officer-search' },
     ],
     initial: existing || { priority:'Moyenne' },
     onSubmit: async (data) => {

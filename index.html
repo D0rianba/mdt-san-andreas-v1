@@ -331,6 +331,24 @@
 
   ::placeholder{color:var(--text-faint);}
   .helper-text{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);margin-top:4px;}
+  .image-drop{width:120px;height:120px;border:1px dashed var(--border);border-radius:var(--radius);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;text-align:center;}
+  .image-drop span{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);padding:8px;line-height:1.4;}
+  .image-drop img{width:100%;height:100%;object-fit:cover;display:block;}
+  .image-drop:hover, .image-drop.drag-over{border-color:var(--amber);}
+  .citizen-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-3);}
+  .citizen-combo{position:relative;}
+  .citizen-combo-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13.5px;outline:none;}
+  .citizen-combo-input:focus{border-color:var(--blue);}
+  .citizen-combo-results{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:220px;overflow-y:auto;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--radius);z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.4);}
+  .citizen-combo-item{padding:9px 12px;font-size:13px;color:var(--text-dim);cursor:pointer;border-bottom:1px solid var(--border-soft);}
+  .citizen-combo-item:last-child{border-bottom:none;}
+  .citizen-combo-item:hover{background:var(--panel-3);color:var(--text);}
+  .citizen-combo-empty{padding:10px 12px;font-family:var(--font-mono);font-size:11.5px;color:var(--text-faint);}
+  .charge-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel-3);border:1px solid var(--border);border-radius:20px;padding:5px 6px 5px 12px;font-size:12px;color:var(--text-dim);font-family:var(--font-body);}
+  .charge-chip-qty-wrap{display:flex;align-items:center;gap:3px;font-family:var(--font-mono);color:var(--text-faint);font-size:11px;}
+  .charge-qty-input{width:38px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;font-family:var(--font-mono);font-size:11.5px;padding:2px 4px;text-align:center;}
+  .charge-chip button{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:11px;padding:2px 4px;line-height:1;}
+  .charge-chip button:hover{color:#FF9EA2;}
 
   @media (max-width:900px){
     .stat-grid{grid-template-columns:repeat(2,1fr);}
@@ -460,6 +478,8 @@
         <div class="nav-section-label">Dossier</div>
         <div class="nav-item" data-page="arrestReports" onclick="goPage('arrestReports')"><span class="nav-icon">⛓</span> Rapport d'arrestation <span class="nav-count" id="count-arrestReports">0</span></div>
         <div class="nav-item" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
+        <div class="nav-item" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
+        <div class="nav-item" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
         <div class="nav-section-label">Service</div>
         <div class="nav-item" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
@@ -574,7 +594,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[] };
 let SESSION = null;
 const RANK_ORDER = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
@@ -604,7 +624,7 @@ const K = {
   warrants:'db:warrants', officers:'db:officers', bolos:'db:bolos', penalCode:'db:penalCode',
   detectiveReports:'db:detectiveReports', logs:'db:logs', events:'db:events', dispatch:'db:dispatch',
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
-  organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures',
+  organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints',
   session:'session:current'
 };
 
@@ -617,6 +637,11 @@ function fmtDate(iso){
 function escapeHtml(s){
   return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Nom + date de naissance, pour différencier les homonymes lors d'une sélection de citoyen
+function citizenIdentifierLabel(c){
+  const name = `${c.firstName} ${c.lastName}`.trim();
+  return name + (c.dob ? ` — ${c.dob}` : ' — DDN non renseignée');
+}
 
 /* ===================== STORAGE ===================== */
 async function loadImageDimensions(url){
@@ -628,7 +653,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -696,6 +721,20 @@ async function loadAll(){
     if(u.vehicleId === undefined){ u.vehicleId = null; unitsMigrated = true; }
   });
   if(unitsMigrated) await saveKey('patrolUnits');
+
+  // migration : les auteurs étaient auparavant enregistrés avec un diminutif de grade
+  // devant le matricule (ex. "C-111") — on ne garde plus que le matricule seul.
+  const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
+  for(const key of AUTHOR_COLLECTIONS){
+    let changed = false;
+    (DB[key] || []).forEach(item => {
+      if(item && typeof item.author === 'string'){
+        const m = item.author.match(/^[A-Za-z]-(.+)$/);
+        if(m){ item.author = m[1]; changed = true; }
+      }
+    });
+    if(changed) await saveKey(key);
+  }
 }
 async function saveKey(key){
   try{
@@ -735,7 +774,7 @@ async function doLogin(){
     return;
   }
   err.textContent = '';
-  SESSION = { badge, rank, name, callsign: rank.slice(0,1).toUpperCase()+'-'+badge };
+  SESSION = { badge, rank, name, callsign: badge };
 
   // register/update officer in roster — les divisions et le statut de service sont préservés si déjà définis
   const existingIdx = DB.officers.findIndex(o => o.badge === badge);
@@ -802,6 +841,8 @@ function updateCounts(){
   document.getElementById('count-organizations').textContent = DB.organizations.length;
   document.getElementById('count-arrestReports').textContent = DB.arrestReports.length;
   document.getElementById('count-seizures').textContent = DB.seizures.length;
+  document.getElementById('count-ppa').textContent = DB.ppas.filter(p => p.status === 'Actif').length;
+  document.getElementById('count-complaints').textContent = DB.complaints.filter(c => c.status === 'Ouverte').length;
   document.getElementById('count-reports').textContent = DB.reports.length;
   document.getElementById('count-warrants').textContent = DB.warrants.length;
   document.getElementById('count-roster').textContent = DB.officers.length;
@@ -903,6 +944,39 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
 
   const fieldsHtml = fields.map(f => {
     const val = initial[f.key] !== undefined ? initial[f.key] : '';
+    if(f.type === 'image-upload'){
+      const helper = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      return `<div class="field">
+        <label>${f.label}</label>
+        <div class="image-drop" id="mf-${f.key}-drop"
+          onclick="document.getElementById('mf-${f.key}-file').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over');"
+          ondragleave="this.classList.remove('drag-over');"
+          ondrop="event.preventDefault();this.classList.remove('drag-over');handleImageUploadField(event.dataTransfer.files[0],'${f.key}');">
+          <div id="mf-${f.key}-preview">${val ? `<img src="${val}">` : '<span>Cliquez ou déposez votre image ici</span>'}</div>
+        </div>
+        <input type="file" id="mf-${f.key}-file" accept="image/*" style="display:none;" onchange="handleImageUploadField(this.files[0],'${f.key}')">
+        <input type="hidden" id="mf-${f.key}" value="${escapeHtml(val)}">
+        ${helper}
+      </div>`;
+    }
+    if(f.type === 'citizen-search'){
+      const selectedCitizen = val ? DB.citizens.find(c => c.id === val) : null;
+      const displayVal = selectedCitizen ? citizenIdentifierLabel(selectedCitizen) : '';
+      const helper = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      return `<div class="field">
+        <label>${f.label}</label>
+        <div class="citizen-combo">
+          <input type="text" id="mf-${f.key}-display" class="citizen-combo-input" autocomplete="off"
+            placeholder="${DB.citizens.length ? 'Rechercher un citoyen par nom...' : 'Aucun citoyen enregistré'}"
+            value="${escapeHtml(displayVal)}"
+            oninput="filterCitizenCombo(this)" onfocus="filterCitizenCombo(this)" onblur="hideCitizenComboLater(this)">
+          <input type="hidden" id="mf-${f.key}" value="${escapeHtml(val)}">
+          <div class="citizen-combo-results" id="mf-${f.key}-results"></div>
+        </div>
+        ${helper}
+      </div>`;
+    }
     if(f.type === 'multiselect'){
       const selected = Array.isArray(val) ? val : [];
       const normOpts = f.options.map(o => typeof o === 'object' ? o : {value:o, label:o});
@@ -954,6 +1028,73 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
 function closeModal(){
   const m = document.getElementById('active-modal');
   if(m) m.remove();
+}
+
+/* Champ d'import d'image (type 'image-upload' de showModal) — recadre toujours en carré parfait,
+   quelle que soit la proportion de la photo importée. */
+async function handleImageUploadField(file, key){
+  if(!file || !file.type || !file.type.startsWith('image/')) return;
+  const preview = document.getElementById('mf-'+key+'-preview');
+  if(preview) preview.innerHTML = '<span>Traitement...</span>';
+  try{
+    const dataUrl = await resizeImageToSquare(file, 400, 0.85);
+    document.getElementById('mf-'+key).value = dataUrl;
+    if(preview) preview.innerHTML = `<img src="${dataUrl}">`;
+  }catch(e){
+    if(preview) preview.innerHTML = '<span>Échec du traitement de l\u2019image.</span>';
+  }
+}
+
+/* Champ de recherche de citoyen (utilisé par le type de champ 'citizen-search' de showModal) —
+   évite un menu déroulant classique, ingérable dès que la base compte plusieurs centaines de fiches. */
+function filterCitizenCombo(inputEl){
+  const hiddenId = inputEl.id.replace('-display','');
+  const hiddenInput = document.getElementById(hiddenId);
+  const resultsEl = document.getElementById(hiddenId+'-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){
+    hiddenInput.value = '';
+    syncCitizenComboToPageDraft(hiddenId, '');
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+    return;
+  }
+  const matches = DB.citizens
+    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .slice(0, 8);
+  if(!matches.length){
+    resultsEl.innerHTML = `<div class="citizen-combo-empty">Aucun citoyen ne correspond.</div>`;
+  } else {
+    resultsEl.innerHTML = matches.map(c => `
+      <div class="citizen-combo-item" data-citizen-id="${escapeHtml(c.id)}" data-citizen-name="${escapeHtml(citizenIdentifierLabel(c))}" onmousedown="selectCitizenComboFromEl(this)">
+        ${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)} <span style="color:var(--text-faint);">${c.dob ? '— '+escapeHtml(c.dob) : '— DDN non renseignée'}</span>
+      </div>`).join('');
+  }
+  resultsEl.style.display = 'block';
+}
+function selectCitizenComboFromEl(el){
+  const resultsEl = el.parentElement;
+  const hiddenId = resultsEl.id.replace('-results','');
+  document.getElementById(hiddenId).value = el.dataset.citizenId;
+  document.getElementById(hiddenId+'-display').value = el.dataset.citizenName;
+  resultsEl.style.display = 'none';
+  syncCitizenComboToPageDraft(hiddenId, el.dataset.citizenId);
+}
+// Ce champ de recherche (citizen-search) est aussi utilisé en dehors des modales (ex. le
+// dépositaire d'une plainte, sur une page dédiée) : quand c'est le cas, un rendu complet de
+// la page déclenché par une autre interaction (ex. ajout d'un suspect) régénère ce champ
+// depuis l'état en mémoire — il faut donc garder cet état synchronisé, pas seulement le DOM.
+function syncCitizenComboToPageDraft(hiddenId, value){
+  if(hiddenId === 'mf-depositorId' && typeof complaintFormDraft !== 'undefined' && complaintFormDraft){
+    complaintFormDraft.depositorId = value;
+  }
+}
+function hideCitizenComboLater(inputEl){
+  const hiddenId = inputEl.id.replace('-display','');
+  setTimeout(() => {
+    const r = document.getElementById(hiddenId+'-results');
+    if(r) r.style.display = 'none';
+  }, 150);
 }
 
 /* Confirmation intégrée à l'app — remplace window.confirm(), bloqué dans certains aperçus intégrés */
@@ -1008,10 +1149,14 @@ function render(){
   else if(currentPage === 'dispatch') c.innerHTML = renderDispatch();
   else if(currentPage === 'serviceVehicles') c.innerHTML = renderServiceVehicles();
   else if(currentPage === 'citizens') c.innerHTML = renderCitizens();
+  else if(currentPage === 'citizenDetail') c.innerHTML = renderCitizenDetail();
   else if(currentPage === 'organizations') c.innerHTML = renderOrganizations();
   else if(currentPage === 'arrestReports') c.innerHTML = renderArrestReports();
   else if(currentPage === 'arrestReportForm') c.innerHTML = renderArrestReportForm();
   else if(currentPage === 'seizures') c.innerHTML = renderSeizures();
+  else if(currentPage === 'ppa') c.innerHTML = renderPPAs();
+  else if(currentPage === 'complaints') c.innerHTML = renderComplaints();
+  else if(currentPage === 'complaintForm') c.innerHTML = renderComplaintForm();
   else if(currentPage === 'reports') c.innerHTML = renderReports();
   else if(currentPage === 'warrants') c.innerHTML = renderWarrants();
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
@@ -1624,25 +1769,26 @@ function renderCitizens(){
     </div>
     ${list.length ? `
     <table>
-      <thead><tr><th>Nom</th><th>Date de naissance</th><th>Adresse</th><th>Permis</th><th>Infractions</th><th>Arrestations</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Nom</th><th>Statut</th><th>Date de naissance</th><th>Adresse</th><th>Permis</th><th>Arrestations</th><th></th></tr></thead>
       <tbody>
         ${list.map(c => {
           const linkedArrests = DB.arrestReports.filter(a => Array.isArray(a.suspectIds) && a.suspectIds.includes(c.id));
           const arrestsCell = linkedArrests.length
-            ? `<a href="#" onclick="goPage('arrestReports');arrestSearch='${escapeHtml((c.lastName||'').replace(/'/g,''))}';render();return false;" style="color:var(--blue);text-decoration:none;"><span class="tag tag-red">${linkedArrests.length}</span></a>`
+            ? `<a href="#" onclick="event.stopPropagation();goPage('arrestReports');arrestSearch='${escapeHtml((c.lastName||'').replace(/'/g,''))}';render();return false;" style="color:var(--blue);text-decoration:none;"><span class="tag tag-red">${linkedArrests.length}</span></a>`
             : '<span class="tag tag-grey">Aucune</span>';
           return `
-          <tr>
+          <tr style="cursor:pointer;" onclick="openCitizenDetail('${c.id}')">
+            <td>${c.photo ? `<img src="${c.photo}" class="citizen-avatar">` : `<div class="citizen-avatar"></div>`}</td>
             <td class="row-name">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}</td>
+            <td>${citizenStatusTag(c.status)}</td>
             <td class="mono">${escapeHtml(c.dob)||'—'}</td>
             <td>${escapeHtml(c.address)||'—'}</td>
             <td>${licenseTag(c.license)}</td>
-            <td>${(c.record||[]).length ? `<span class="tag tag-red">${(c.record||[]).length}</span>` : '<span class="tag tag-grey">Vierge</span>'}</td>
             <td>${arrestsCell}</td>
             <td class="row-actions">
-              <button class="icon-btn" onclick="openCitizenModal('${c.id}')">Modifier</button>
-              <button class="icon-btn" onclick="addRecordEntry('${c.id}')">+ Infraction</button>
-              <button class="icon-btn danger" onclick="deleteEntity('citizens','${c.id}')">Suppr.</button>
+              <button class="icon-btn" onclick="event.stopPropagation();openCitizenDetail('${c.id}')">Fiche</button>
+              <button class="icon-btn" onclick="event.stopPropagation();openCitizenModal('${c.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('citizens','${c.id}')">Suppr.</button>
             </td>
           </tr>`;
         }).join('')}
@@ -1650,11 +1796,101 @@ function renderCitizens(){
     </table>` : `<div class="empty-state"><div class="em-icon">☰</div>Aucun citoyen ne correspond à cette recherche.</div>`}
   `;
 }
+let citizenDetailId = null;
+function openCitizenDetail(id){
+  citizenDetailId = id;
+  currentPage = 'citizenDetail';
+  render();
+}
+function renderCitizenDetail(){
+  const c = DB.citizens.find(x => x.id === citizenDetailId);
+  if(!c) return `<div class="empty-state"><div class="em-icon">☰</div>Fiche introuvable.</div>`;
+  const arrests = DB.arrestReports
+    .filter(a => Array.isArray(a.suspectIds) && a.suspectIds.includes(c.id))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('citizens')" title="Retour" style="font-size:16px;">←</button>
+        <div class="page-title">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}</div>
+      </div>
+      <button class="btn" onclick="openCitizenModal('${c.id}')">✎ Modifier</button>
+    </div>
+
+    <div class="panel-block" style="display:flex;gap:20px;padding:18px;align-items:flex-start;">
+      <div style="flex:none;">
+        ${c.photo
+          ? `<img src="${c.photo}" style="width:96px;height:96px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--border);">`
+          : `<div style="width:96px;height:96px;border-radius:var(--radius);background:var(--panel-3);border:1px solid var(--border);"></div>`}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${citizenStatusTag(c.status)}</div>
+        <div style="display:flex;gap:22px;flex-wrap:wrap;font-size:13.5px;color:var(--text-dim);margin-bottom:12px;">
+          ${c.phone ? `<span>📞 ${escapeHtml(c.phone)}</span>` : ''}
+          ${c.dob ? `<span>📅 ${escapeHtml(c.dob)}</span>` : ''}
+          ${c.job ? `<span>💼 ${escapeHtml(c.job)}</span>` : ''}
+          ${c.gender ? `<span>${escapeHtml(c.gender)}</span>` : ''}
+        </div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.9;">
+          <div>Nationalité : <b style="color:var(--text);">${escapeHtml(c.nationality)||'—'}</b></div>
+          <div>Groupe éthnique : <b style="color:var(--text);">${escapeHtml(c.ethnicity)||'—'}</b></div>
+          ${c.height ? `<div>Taille : <b style="color:var(--text);">${escapeHtml(c.height)} cm</b></div>` : ''}
+          ${c.weight ? `<div>Poids : <b style="color:var(--text);">${escapeHtml(c.weight)} kg</b></div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;">Note(s)</div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;font-size:13px;color:var(--text-dim);line-height:1.6;">
+      ${c.notes ? escapeHtml(c.notes) : '<span class="helper-text">Aucune note.</span>'}
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;">Permis</div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;">
+      ${licenseTag(c.license)}
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;">Arme(s)</div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;">
+      <span class="helper-text">Aucune arme enregistrée.</span>
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;">Plaintes</div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;">
+      <span class="helper-text">Aucune.</span>
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Rapports d'arrestation</span>
+      <button class="btn btn-sm" onclick="openNewArrestReportPage('${c.id}')">+ Créer un rapport</button>
+    </div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:4px 0;margin-bottom:30px;">
+      ${arrests.length ? arrests.map(a => `
+        <div class="activity-row" style="cursor:pointer;" onclick="window.open(buildPublicReportUrl('${a.bookingNumber}'), '_blank')" title="Voir le rapport public">
+          <div class="activity-time">${new Date(a.date).toLocaleDateString('fr-FR')}</div>
+          <div class="activity-text"><b class="mono">${escapeHtml(a.bookingNumber)}</b> ${arrestValidationTag(a.status)} <span style="color:var(--text-faint);">↗ voir le rapport public</span></div>
+        </div>`).join('') : `<div class="helper-text" style="padding:14px 16px;">Aucun.</div>`}
+    </div>
+  `;
+}
 function licenseTag(status){
   if(status === 'Valide') return '<span class="tag tag-green">Valide</span>';
   if(status === 'Suspendu') return '<span class="tag tag-amber">Suspendu</span>';
   if(status === 'Révoqué') return '<span class="tag tag-red">Révoqué</span>';
   return '<span class="tag tag-grey">—</span>';
+}
+const CITIZEN_GENDERS = ['Homme','Femme','Autre','Inconnu'];
+const CITIZEN_ETHNICITIES = ['Afro-Américain','Amérindien','Asiatique','Caucasien','Hispanique / Latino','Métis','Moyen-Oriental','Autre','Inconnu'];
+const CITIZEN_STATUSES = ['Dangereux','Décédé','Disparu','Emprisonné','Libre','Recherché','Visa annulé'];
+function citizenStatusTag(status){
+  if(status === 'Dangereux') return '<span class="tag tag-red">Dangereux</span>';
+  if(status === 'Recherché') return '<span class="tag tag-red">Recherché</span>';
+  if(status === 'Emprisonné') return '<span class="tag tag-amber">Emprisonné</span>';
+  if(status === 'Disparu') return '<span class="tag tag-blue">Disparu</span>';
+  if(status === 'Décédé') return '<span class="tag tag-grey">Décédé</span>';
+  if(status === 'Visa annulé') return '<span class="tag tag-grey">Visa annulé</span>';
+  return '<span class="tag tag-green">Libre</span>';
 }
 function openCitizenModal(id){
   const existing = id ? DB.citizens.find(c => c.id === id) : null;
@@ -1664,38 +1900,30 @@ function openCitizenModal(id){
       { key:'firstName', label:'Prénom' },
       { key:'lastName', label:'Nom' },
       { key:'dob', label:'Date de naissance', placeholder:'JJ/MM/AAAA' },
+      { key:'job', label:'Travail' },
+      { key:'phone', label:'Numéro de téléphone' },
+      { key:'nationality', label:'Nationalité' },
+      { key:'gender', label:'Genre', type:'select', options:CITIZEN_GENDERS },
+      { key:'ethnicity', label:'Groupe éthnique', type:'select', options:CITIZEN_ETHNICITIES },
+      { key:'height', label:'Taille (cm)', type:'number' },
+      { key:'weight', label:'Poids (kg)', type:'number' },
       { key:'address', label:'Adresse' },
       { key:'license', label:'Statut du permis', type:'select', options:['Valide','Suspendu','Révoqué','Aucun'] },
       { key:'notes', label:'Notes', type:'textarea' },
+      { key:'status', label:'Statut', type:'select', options:CITIZEN_STATUSES },
+      { key:'photo', label:'Image', type:'image-upload', helper:"L'image est automatiquement recadrée au format carré." },
     ],
-    initial: existing || {},
+    initial: existing || { status:'Libre', gender:'Inconnu', ethnicity:'Inconnu' },
     onSubmit: async (data) => {
       if(existing){
         Object.assign(existing, data);
         await saveKey('citizens');
         await logAction('Modification fiche citoyen', `${data.firstName} ${data.lastName}`);
       } else {
-        DB.citizens.push({ id: uid('cit'), ...data, record:[], date: nowISO(), author: SESSION.callsign });
+        DB.citizens.push({ id: uid('cit'), ...data, date: nowISO(), author: SESSION.callsign });
         await saveKey('citizens');
         await logAction('Création fiche citoyen', `${data.firstName} ${data.lastName}`);
       }
-      render();
-    }
-  });
-}
-function addRecordEntry(id){
-  const c = DB.citizens.find(x => x.id === id);
-  showModal({
-    title: 'Ajouter une infraction — ' + c.firstName + ' ' + c.lastName,
-    fields: [
-      { key:'charge', label:"Chef d'accusation" },
-      { key:'notes', label:'Détails', type:'textarea' }
-    ],
-    onSubmit: async (data) => {
-      c.record = c.record || [];
-      c.record.push({ ...data, date: nowISO(), author: SESSION.callsign });
-      await saveKey('citizens');
-      await logAction('Infraction ajoutée au casier', `${c.firstName} ${c.lastName} — ${data.charge}`);
       render();
     }
   });
@@ -1993,13 +2221,24 @@ function parseMonthsValue(v){
   const num = parseFloat(String(v||'').replace(',', '.').replace(/[^0-9.-]/g,''));
   return isNaN(num) ? 0 : num;
 }
-function computeArrestTotals(chargeIds, fineTierKey){
-  const charges = (chargeIds||[]).map(id => DB.penalCode.find(p => p.id === id)).filter(Boolean);
-  const baseTotal = charges.reduce((sum, c) => sum + parseMoneyValue(c.fine), 0);
-  const maxMonths = charges.reduce((max, c) => Math.max(max, parseMonthsValue(c.jailTime)), 0);
+function computeArrestTotals(charges, fineTierKey){
+  const entries = (charges||[]).map(ch => ({ entry: DB.penalCode.find(p => p.id === ch.id), quantity: ch.quantity || 1 })).filter(x => x.entry);
+  const baseTotal = entries.reduce((sum, x) => sum + parseMoneyValue(x.entry.fine) * x.quantity, 0);
+  const maxMonths = entries.reduce((max, x) => Math.max(max, parseMonthsValue(x.entry.jailTime)), 0);
   const tier = FINE_TIERS.find(t => t.key === fineTierKey) || FINE_TIERS.find(t => t.key === 'nominal');
   const total = Math.max(0, Math.round(baseTotal * (1 + tier.mult)));
   return { total, jailTime: maxMonths };
+}
+// Résout les chefs d'inculpation d'un rapport, en gérant l'ancien format (chargeIds sans quantité)
+// et le nouveau (charges avec quantité), pour l'affichage en lecture seule.
+function resolveArrestCharges(a){
+  if(Array.isArray(a.charges)){
+    return a.charges.map(ch => ({ entry: DB.penalCode.find(p => p.id === ch.id), quantity: ch.quantity || 1 })).filter(x => x.entry);
+  }
+  if(Array.isArray(a.chargeIds)){
+    return a.chargeIds.map(id => ({ entry: DB.penalCode.find(p => p.id === id), quantity: 1 })).filter(x => x.entry);
+  }
+  return [];
 }
 let arrestSearch = '';
 function resolveArrestSubjectNames(a){
@@ -2047,7 +2286,7 @@ function openArrestReportView(id){
   const suspects = (a.suspectIds||[]).map(sid => DB.citizens.find(c=>c.id===sid)).filter(Boolean);
   const agents = (a.agentBadges||[]).map(b => DB.officers.find(o=>o.badge===b)).filter(Boolean);
   const responsible = DB.officers.find(o => o.badge === a.responsibleBadge);
-  const charges = (a.chargeIds||[]).map(cid => DB.penalCode.find(p=>p.id===cid)).filter(Boolean);
+  const charges = resolveArrestCharges(a);
   const linkedSeizures = (a.linkedSeizureIds||[]).map(sid => DB.seizures.find(s=>s.id===sid)).filter(Boolean);
   const fineTier = FINE_TIERS.find(t => t.key === a.fineTier) || FINE_TIERS.find(t => t.key==='nominal');
 
@@ -2078,7 +2317,7 @@ function openArrestReportView(id){
 
         <div class="af-label">Chefs d'inculpation</div>
         <div style="margin-bottom:10px;">
-          ${charges.length ? charges.map(c => `<div style="font-size:13px;color:var(--text-dim);margin-bottom:2px;"><span class="mono" style="color:var(--text);">${escapeHtml(c.code)}</span> — ${escapeHtml(c.title)}</div>`).join('') : '<span class="helper-text">Aucun</span>'}
+          ${charges.length ? charges.map(x => `<div style="font-size:13px;color:var(--text-dim);margin-bottom:2px;"><span class="mono" style="color:var(--text);">${escapeHtml(x.entry.code)}</span> — ${escapeHtml(x.entry.title)}${x.quantity>1?` <span style="color:var(--text-faint);">×${x.quantity}</span>`:''}</div>`).join('') : '<span class="helper-text">Aucun</span>'}
         </div>
 
         <div class="af-row" style="margin-bottom:10px;">
@@ -2111,13 +2350,13 @@ function openArrestReportView(id){
 
 /* ---- Page de formulaire (pas une modale — page dédiée, comme le reste du site) ---- */
 let arrestFormDraft = null;
-function openNewArrestReportPage(){
+function openNewArrestReportPage(presetSuspectId){
   arrestFormDraft = {
     id: null, bookingNumber: null, reportHtml: '',
     mirandaRead: 'Non', mirandaTime: '', cooperative: 'Non',
     evidencePhotos: [],
     responsibleBadge: SESSION.badge,
-    suspectIds: [], agentBadges: [], chargeIds: [],
+    suspectIds: presetSuspectId ? [presetSuspectId] : [], agentBadges: [], charges: [],
     fineTier: 'nominal', status: 'En attente de validation',
     linkedSeizureIds: []
   };
@@ -2137,7 +2376,8 @@ function openEditArrestReportPage(id){
     responsibleBadge: existing.responsibleBadge || SESSION.badge,
     suspectIds: existing.suspectIds ? existing.suspectIds.slice() : [],
     agentBadges: existing.agentBadges ? existing.agentBadges.slice() : [],
-    chargeIds: existing.chargeIds ? existing.chargeIds.slice() : [],
+    // rétrocompatibilité : les anciens rapports stockaient chargeIds (sans quantité)
+    charges: existing.charges ? existing.charges.map(c => ({...c})) : (existing.chargeIds || []).map(id => ({ id, quantity: 1 })),
     fineTier: existing.fineTier || 'nominal',
     status: existing.status || 'En attente de validation',
     linkedSeizureIds: existing.linkedSeizureIds ? existing.linkedSeizureIds.slice() : []
@@ -2148,12 +2388,10 @@ function openEditArrestReportPage(id){
 function renderArrestReportForm(){
   if(!arrestFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
   const d = arrestFormDraft;
-  const { total, jailTime } = computeArrestTotals(d.chargeIds, d.fineTier);
+  const { total, jailTime } = computeArrestTotals(d.charges, d.fineTier);
 
   const officerOptions = DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.responsibleBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
-  const suspectOptions = [...DB.citizens].sort((a,b)=>(a.lastName||'').localeCompare(b.lastName||'')).map(c => `<option value="${escapeHtml(c.id)}" ${d.suspectIds.includes(c.id)?'selected':''}>${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}</option>`).join('');
   const agentOptions = DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.agentBadges.includes(o.badge)?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
-  const chargeOptions = [...DB.penalCode].sort((a,b)=>(a.code||'').localeCompare(b.code||'',undefined,{numeric:true})).map(p => `<option value="${escapeHtml(p.id)}" ${d.chargeIds.includes(p.id)?'selected':''}>${escapeHtml(p.code)} — ${escapeHtml(p.title)} (${p.fine?formatMoney(p.fine):'—'}${p.jailTime?' · '+escapeHtml(p.jailTime)+' mois':''})</option>`).join('');
 
   return `
     <div class="page-head">
@@ -2216,11 +2454,18 @@ function renderArrestReportForm(){
           <select onchange="arrestFormDraft.responsibleBadge=this.value">${officerOptions}</select>
         </div>
 
-        <div class="af-row">
-          <div class="field">
-            <label>Suspects (Ctrl/Cmd + clic pour plusieurs)</label>
-            <select multiple size="5" onchange="syncArrestMultiSelect(this,'suspectIds')">${suspectOptions || '<option disabled>Aucun citoyen enregistré</option>'}</select>
+        <div class="field">
+          <label>Suspects</label>
+          <div class="citizen-combo">
+            <input type="text" id="suspect-search-input" class="citizen-combo-input" autocomplete="off"
+              placeholder="${DB.citizens.length ? 'Rechercher un citoyen à ajouter...' : 'Aucun citoyen enregistré'}"
+              oninput="filterSuspectSearch(this)" onfocus="filterSuspectSearch(this)" onblur="hideCitizenComboLater(this)">
+            <div class="citizen-combo-results" id="suspect-search-input-results"></div>
           </div>
+          <div class="af-linked-list" style="margin-top:8px;">${renderSuspectChipsHtml()}</div>
+        </div>
+
+        <div class="af-row">
           <div class="field">
             <label>Agents présents</label>
             <select multiple size="5" onchange="syncArrestMultiSelect(this,'agentBadges')">${agentOptions || '<option disabled>Aucun agent enregistré</option>'}</select>
@@ -2228,8 +2473,14 @@ function renderArrestReportForm(){
         </div>
 
         <div class="field">
-          <label>Chefs d'inculpation (Ctrl/Cmd + clic pour plusieurs)</label>
-          <select multiple size="6" onchange="syncArrestMultiSelect(this,'chargeIds');recalcArrestTotals();">${chargeOptions || '<option disabled>Aucune infraction dans le Code Pénal</option>'}</select>
+          <label>Chefs d'inculpation</label>
+          <div class="citizen-combo">
+            <input type="text" id="charge-search-input" class="citizen-combo-input" autocomplete="off"
+              placeholder="${DB.penalCode.length ? 'Rechercher une infraction (code ou intitulé)...' : 'Aucune infraction dans le Code Pénal'}"
+              oninput="filterChargeSearch(this)" onfocus="filterChargeSearch(this)" onblur="hideCitizenComboLater(this)">
+            <div class="citizen-combo-results" id="charge-search-input-results"></div>
+          </div>
+          <div class="af-linked-list" style="margin-top:8px;">${renderChargeChipsHtml()}</div>
         </div>
 
         <div class="af-row">
@@ -2289,13 +2540,87 @@ function rteExec(cmd, arg){
   const editor = document.getElementById('rte-editor');
   editor.focus();
   try{ document.execCommand(cmd, false, arg || null); }catch(e){ console.warn('rteExec', cmd, e); }
-  arrestFormDraft.reportHtml = editor.innerHTML;
+  if(currentPage === 'arrestReportForm' && arrestFormDraft) arrestFormDraft.reportHtml = editor.innerHTML;
+  else if(currentPage === 'complaintForm' && complaintFormDraft) complaintFormDraft.bodyHtml = editor.innerHTML;
 }
 function syncArrestMultiSelect(selectEl, field){
   arrestFormDraft[field] = [...selectEl.selectedOptions].map(o => o.value);
 }
+function renderSuspectChipsHtml(){
+  if(!arrestFormDraft.suspectIds.length) return '<span class="helper-text">Aucun suspect ajouté.</span>';
+  return arrestFormDraft.suspectIds.map(id => {
+    const c = DB.citizens.find(x => x.id === id);
+    if(!c) return '';
+    return `<span class="badge-chip" style="cursor:pointer;" onclick="removeSuspectChip('${id}')" title="Retirer">${escapeHtml(citizenIdentifierLabel(c))} ✕</span>`;
+  }).join('');
+}
+function filterSuspectSearch(inputEl){
+  const resultsEl = document.getElementById('suspect-search-input-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  const matches = DB.citizens
+    .filter(c => !arrestFormDraft.suspectIds.includes(c.id))
+    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .slice(0, 8);
+  resultsEl.innerHTML = matches.length
+    ? matches.map(c => `<div class="citizen-combo-item" data-citizen-id="${escapeHtml(c.id)}" onmousedown="addSuspectFromEl(this)">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)} <span style="color:var(--text-faint);">${c.dob ? '— '+escapeHtml(c.dob) : '— DDN non renseignée'}</span></div>`).join('')
+    : `<div class="citizen-combo-empty">Aucun citoyen ne correspond.</div>`;
+  resultsEl.style.display = 'block';
+}
+function addSuspectFromEl(el){
+  const id = el.dataset.citizenId;
+  if(!arrestFormDraft.suspectIds.includes(id)) arrestFormDraft.suspectIds.push(id);
+  render();
+}
+function removeSuspectChip(id){
+  arrestFormDraft.suspectIds = arrestFormDraft.suspectIds.filter(x => x !== id);
+  render();
+}
+function renderChargeChipsHtml(){
+  if(!arrestFormDraft.charges.length) return '<span class="helper-text">Aucun chef d\u2019inculpation ajouté.</span>';
+  return arrestFormDraft.charges.map(entry => {
+    const p = DB.penalCode.find(x => x.id === entry.id);
+    if(!p) return '';
+    return `<span class="charge-chip">
+      <span>${escapeHtml(p.code)} — ${escapeHtml(p.title)}</span>
+      <span class="charge-chip-qty-wrap">×<input type="number" min="1" value="${entry.quantity}" class="charge-qty-input" onmousedown="event.stopPropagation()" oninput="updateChargeQuantity('${entry.id}', this.value)"></span>
+      <button type="button" onmousedown="event.stopPropagation()" onclick="removeCharge('${entry.id}')" title="Retirer">✕</button>
+    </span>`;
+  }).join('');
+}
+function filterChargeSearch(inputEl){
+  const resultsEl = document.getElementById('charge-search-input-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  const selectedIds = arrestFormDraft.charges.map(c => c.id);
+  const matches = DB.penalCode
+    .filter(p => !selectedIds.includes(p.id))
+    .filter(p => (p.code+' '+p.title).toLowerCase().includes(query))
+    .slice(0, 8);
+  resultsEl.innerHTML = matches.length
+    ? matches.map(p => `<div class="citizen-combo-item" data-charge-id="${escapeHtml(p.id)}" onmousedown="addChargeFromEl(this)">${escapeHtml(p.code)} — ${escapeHtml(p.title)} <span style="color:var(--text-faint);">(${p.fine?formatMoney(p.fine):'—'}${p.jailTime?' · '+escapeHtml(p.jailTime)+' mois':''})</span></div>`).join('')
+    : `<div class="citizen-combo-empty">Aucune infraction ne correspond.</div>`;
+  resultsEl.style.display = 'block';
+}
+function addChargeFromEl(el){
+  const id = el.dataset.chargeId;
+  if(!arrestFormDraft.charges.some(c => c.id === id)) arrestFormDraft.charges.push({ id, quantity: 1 });
+  render();
+}
+function removeCharge(id){
+  arrestFormDraft.charges = arrestFormDraft.charges.filter(c => c.id !== id);
+  render();
+}
+function updateChargeQuantity(id, value){
+  const entry = arrestFormDraft.charges.find(c => c.id === id);
+  if(!entry) return;
+  let q = parseInt(value, 10);
+  if(isNaN(q) || q < 1) q = 1;
+  entry.quantity = q;
+  recalcArrestTotals();
+}
 function recalcArrestTotals(){
-  const { total, jailTime } = computeArrestTotals(arrestFormDraft.chargeIds, arrestFormDraft.fineTier);
+  const { total, jailTime } = computeArrestTotals(arrestFormDraft.charges, arrestFormDraft.fineTier);
   const totalEl = document.getElementById('af-total-display');
   const upEl = document.getElementById('af-up-display');
   if(totalEl) totalEl.value = formatMoney(total);
@@ -2336,6 +2661,29 @@ function resizeImageFile(file, maxDim, quality){
     reader.readAsDataURL(file);
   });
 }
+// Recadre l'image au centre pour obtenir un carré parfait, puis la redimensionne — utilisé
+// pour les photos de citoyens, quelle que soit la proportion de l'image d'origine.
+function resizeImageToSquare(file, size, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - side) / 2;
+        const sy = (img.naturalHeight - side) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 function openArrestConvocationPlaceholder(){
   infoDialog("La gestion des convocations sera ajoutée dans une prochaine étape.");
 }
@@ -2345,17 +2693,18 @@ async function onSeizureLinkedToArrest(seizure){
 }
 async function submitArrestReport(){
   const d = arrestFormDraft;
-  const { total, jailTime } = computeArrestTotals(d.chargeIds, d.fineTier);
+  const { total, jailTime } = computeArrestTotals(d.charges, d.fineTier);
   const payload = {
     reportHtml: d.reportHtml, mirandaRead: d.mirandaRead, mirandaTime: d.mirandaRead==='Oui' ? d.mirandaTime : '', cooperative: d.cooperative,
     evidencePhotos: d.evidencePhotos, responsibleBadge: d.responsibleBadge,
-    suspectIds: d.suspectIds, agentBadges: d.agentBadges, chargeIds: d.chargeIds,
+    suspectIds: d.suspectIds, agentBadges: d.agentBadges, charges: d.charges,
     fineTier: d.fineTier, total, jailTime, status: d.status, linkedSeizureIds: d.linkedSeizureIds
   };
   let bookingNumber = d.bookingNumber || nextArrestNumber();
   if(d.id){
     const existing = DB.arrestReports.find(a => a.id === d.id);
     Object.assign(existing, payload);
+    delete existing.chargeIds; // migration : le nouveau format 'charges' (avec quantité) remplace l'ancien
   } else {
     DB.arrestReports.push({ id: uid('arr'), bookingNumber, ...payload, date: nowISO(), author: SESSION.callsign });
   }
@@ -2384,9 +2733,13 @@ function nextSeizureNumber(){
   return `SAI-${year}-${String(countThisYear).padStart(4,'0')}`;
 }
 let seizureSearch = '';
+function seizureOwnerDisplay(s){
+  if(s.ownerId){ const c = DB.citizens.find(x=>x.id===s.ownerId); return c ? `${c.firstName} ${c.lastName}`.trim() : '(fiche supprimée)'; }
+  return s.owner || '';
+}
 function renderSeizures(){
   const list = DB.seizures
-    .filter(s => (s.item+' '+s.description+' '+s.seizureNumber+' '+s.owner).toLowerCase().includes(seizureSearch.toLowerCase()))
+    .filter(s => (s.item+' '+s.description+' '+s.seizureNumber+' '+seizureOwnerDisplay(s)).toLowerCase().includes(seizureSearch.toLowerCase()))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -2405,7 +2758,7 @@ function renderSeizures(){
             <td class="mono row-name">${escapeHtml(s.seizureNumber)}</td>
             <td><span class="tag tag-grey">${escapeHtml(s.item)}</span></td>
             <td>${escapeHtml(s.description)||'—'}</td>
-            <td>${escapeHtml(s.owner)||'—'}</td>
+            <td>${s.ownerId ? `<a href="#" onclick="goPage('citizens');citizenSearch='${escapeHtml((seizureOwnerDisplay(s)).replace(/'/g,''))}';render();return false;" style="color:var(--blue);text-decoration:none;">${escapeHtml(seizureOwnerDisplay(s))}</a>` : (escapeHtml(seizureOwnerDisplay(s))||'—')}</td>
             <td class="mono">${new Date(s.date).toLocaleDateString('fr-FR')}</td>
             <td>${seizureStatusTag(s.status)}</td>
             <td class="row-actions">
@@ -2424,20 +2777,402 @@ function openSeizureModal(id, onCreated){
     fields: [
       { key:'item', label:'Nature', type:'select', options:SEIZURE_TYPES },
       { key:'description', label:'Description', placeholder:'Ex. quantité, valeur estimée, marque...' },
-      { key:'owner', label:'Propriétaire / personne concernée' },
+      { key:'ownerId', label:'Propriétaire', type:'citizen-search',
+        helper: DB.citizens.length ? "Lié à une fiche citoyen existante." : "Crée d'abord une fiche citoyen pour pouvoir l'associer ici." },
       { key:'location', label:'Lieu de la saisie' },
       { key:'status', label:'Statut', type:'select', options:SEIZURE_STATUSES },
       { key:'notes', label:'Notes', type:'textarea' },
     ],
-    initial: existing || { status:'En stock' },
+    initial: existing ? { ...existing, ownerId: existing.ownerId || '' } : { status:'En stock' },
     onSubmit: async (data) => {
       let seizureNumber = existing ? existing.seizureNumber : nextSeizureNumber();
       let record;
-      if(existing){ Object.assign(existing, data); record = existing; }
+      if(existing){ Object.assign(existing, data); delete existing.owner; record = existing; }
       else{ record = { id: uid('sai'), seizureNumber, ...data, date: nowISO(), author: SESSION.callsign }; DB.seizures.push(record); }
       await saveKey('seizures');
       await logAction(existing ? 'Modification saisie' : 'Nouvelle saisie', `${seizureNumber} — ${data.item}`);
       if(onCreated) await onCreated(record);
+      render();
+    }
+  });
+}
+
+/* ===================== DOSSIER — PLAINTES ===================== */
+const COMPLAINT_STATUSES = ['Ouverte','Résolue','Cold Case'];
+function complaintStatusTag(s){
+  if(s === 'Résolue') return '<span class="tag tag-green">Résolue</span>';
+  if(s === 'Cold Case') return '<span class="tag tag-grey">Cold Case</span>';
+  return '<span class="tag tag-amber">Ouverte</span>';
+}
+function nextComplaintNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.complaints.filter(c => c.complaintNumber && c.complaintNumber.includes('-'+year+'-')).length + 1;
+  return `PLT-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+let complaintSearch = '';
+function renderComplaints(){
+  const resolveDepositor = (c) => { const cit = DB.citizens.find(x => x.id === c.depositorId); return cit ? citizenIdentifierLabel(cit) : '—'; };
+  const list = DB.complaints
+    .filter(c => (resolveDepositor(c)+' '+c.complaintNumber+' '+c.reason).toLowerCase().includes(complaintSearch.toLowerCase()))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Plainte</div><div class="page-sub">DOSSIERS DE PLAINTES</div></div>
+      <button class="btn btn-primary" onclick="openNewComplaintPage()">+ Nouvelle plainte</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un dépositaire, une raison, un n° de plainte..." value="${escapeHtml(complaintSearch)}" oninput="complaintSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N° Plainte</th><th>Dépositaire</th><th>Raison</th><th>Faits survenus le</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(c => `
+          <tr style="cursor:pointer;" onclick="openComplaintView('${c.id}')">
+            <td class="mono row-name">${escapeHtml(c.complaintNumber)}</td>
+            <td>${escapeHtml(resolveDepositor(c))}</td>
+            <td>${escapeHtml(c.reason)||'—'}</td>
+            <td class="mono">${c.incidentDateTime ? new Date(c.incidentDateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+            <td>${complaintStatusTag(c.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="event.stopPropagation();openEditComplaintPage('${c.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('complaints','${c.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">📣</div>Aucune plainte enregistrée.</div>`}
+  `;
+}
+function openComplaintView(id){
+  const c = DB.complaints.find(x => x.id === id);
+  if(!c) return;
+  const depositor = DB.citizens.find(x => x.id === c.depositorId);
+  const suspects = (c.suspectIds||[]).map(sid => DB.citizens.find(x=>x.id===sid)).filter(Boolean);
+  const agents = (c.assignedAgentBadges||[]).map(b => DB.officers.find(o=>o.badge===b)).filter(Boolean);
+  const takenBy = DB.officers.find(o => o.badge === c.takenByBadge);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:720px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(c.complaintNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;">${complaintStatusTag(c.status)}</div>
+
+        <div class="af-label">Dépositaire</div>
+        <div style="margin-bottom:10px;">${depositor ? `<a href="#" onclick="closeModal();openCitizenDetail('${depositor.id}')" style="color:var(--blue);text-decoration:none;">${escapeHtml(citizenIdentifierLabel(depositor))}</a>` : '<span class="helper-text">Non renseigné</span>'}</div>
+
+        <div class="af-label">Raison du dépôt</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(c.reason)||'—'}</div>
+
+        <div class="af-label">Les faits ont eu lieu le</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${c.incidentDateTime ? new Date(c.incidentDateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
+
+        <div class="af-label">Plainte prise par</div>
+        <div style="margin-bottom:10px;">${takenBy ? `[${escapeHtml(takenBy.badge)}] ${escapeHtml(takenBy.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        <div class="af-label">Suspect(s)</div>
+        <div style="margin-bottom:10px;">${suspects.length ? suspects.map(c2 => `<a href="#" onclick="closeModal();openCitizenDetail('${c2.id}')" style="color:var(--blue);text-decoration:none;margin-right:10px;">${escapeHtml(citizenIdentifierLabel(c2))}</a>`).join('') : '<span class="helper-text">Aucun</span>'}</div>
+
+        <div class="af-label">Agent(s) assigné(s)</div>
+        <div style="margin-bottom:10px;">${agents.length ? agents.map(o=>`[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}`).join(', ') : '<span class="helper-text">Aucun</span>'}</div>
+
+        ${c.evidencePhotos && c.evidencePhotos.length ? `
+        <div class="af-label">Preuves</div>
+        <div class="evidence-thumbs" style="margin-bottom:10px;">${c.evidencePhotos.map(src=>`<div class="evidence-thumb" style="cursor:zoom-in;"><img src="${src}" onclick="window.open('${src}','_blank')"></div>`).join('')}</div>` : ''}
+
+        <div class="af-label">Corps de la plainte</div>
+        <div class="rte-editor" style="min-height:120px;background:var(--panel-2);">${c.bodyHtml || '<span class="helper-text">Aucun texte rédigé.</span>'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Enregistrée par ${escapeHtml(c.author)} le ${fmtDate(c.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn" onclick="closeModal();openPublicLinkModal('${c.complaintNumber}','complaint')">🔗 Lien public</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditComplaintPage('${c.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
+
+let complaintFormDraft = null;
+function openNewComplaintPage(presetDepositorId){
+  complaintFormDraft = {
+    id: null, complaintNumber: null,
+    depositorId: presetDepositorId || '', reason: '', incidentDateTime: '',
+    bodyHtml: '', evidencePhotos: [],
+    takenByBadge: SESSION.badge,
+    suspectIds: [], assignedAgentBadges: [],
+    status: 'Ouverte'
+  };
+  currentPage = 'complaintForm';
+  render();
+}
+function openEditComplaintPage(id){
+  const existing = DB.complaints.find(c => c.id === id);
+  if(!existing) return;
+  complaintFormDraft = {
+    id: existing.id, complaintNumber: existing.complaintNumber,
+    depositorId: existing.depositorId || '', reason: existing.reason || '', incidentDateTime: existing.incidentDateTime || '',
+    bodyHtml: existing.bodyHtml || '', evidencePhotos: existing.evidencePhotos ? existing.evidencePhotos.slice() : [],
+    takenByBadge: existing.takenByBadge || SESSION.badge,
+    suspectIds: existing.suspectIds ? existing.suspectIds.slice() : [],
+    assignedAgentBadges: existing.assignedAgentBadges ? existing.assignedAgentBadges.slice() : [],
+    status: existing.status || 'Ouverte'
+  };
+  currentPage = 'complaintForm';
+  render();
+}
+function renderComplaintForm(){
+  if(!complaintFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = complaintFormDraft;
+  const depositorCitizen = d.depositorId ? DB.citizens.find(c => c.id === d.depositorId) : null;
+  const depositorDisplay = depositorCitizen ? citizenIdentifierLabel(depositorCitizen) : '';
+  const officerOptions = DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.takenByBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+  const agentOptions = DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.assignedAgentBadges.includes(o.badge)?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('complaints')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier la plainte' : 'Nouvelle plainte'}</div>${d.complaintNumber ? `<div class="page-sub">${escapeHtml(d.complaintNumber)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Dépositaire</label>
+      <div class="citizen-combo">
+        <input type="text" id="mf-depositorId-display" class="citizen-combo-input" autocomplete="off"
+          placeholder="${DB.citizens.length ? 'Rechercher un citoyen par nom...' : 'Aucun citoyen enregistré'}"
+          value="${escapeHtml(depositorDisplay)}"
+          oninput="filterCitizenCombo(this)" onfocus="filterCitizenCombo(this)" onblur="hideCitizenComboLater(this)">
+        <input type="hidden" id="mf-depositorId" value="${escapeHtml(d.depositorId)}">
+        <div class="citizen-combo-results" id="mf-depositorId-results"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Raison du dépôt</label>
+      <input type="text" id="complaint-reason" value="${escapeHtml(d.reason)}" placeholder="Ex. Kidnapping" oninput="complaintFormDraft.reason=this.value">
+    </div>
+
+    <div class="field" style="max-width:340px;">
+      <label>Les faits ont eu lieu le</label>
+      <input type="datetime-local" id="complaint-incident-datetime" value="${escapeHtml(d.incidentDateTime)}" onchange="complaintFormDraft.incidentDateTime=this.value">
+    </div>
+
+    <label class="af-label">Corps de la plainte :</label>
+    <div class="rte-toolbar">
+      <button type="button" onclick="rteExec('bold')" title="Gras"><b>B</b></button>
+      <button type="button" onclick="rteExec('italic')" title="Italique"><i>I</i></button>
+      <button type="button" onclick="rteExec('underline')" title="Souligné"><u>U</u></button>
+      <button type="button" onclick="rteExec('strikeThrough')" title="Barré"><s>S</s></button>
+      <button type="button" onclick="rteExec('formatBlock','H1')" title="Titre 1">H1</button>
+      <button type="button" onclick="rteExec('formatBlock','H2')" title="Titre 2">H2</button>
+      <button type="button" onclick="rteExec('insertUnorderedList')" title="Liste à puces">•≡</button>
+      <button type="button" onclick="rteExec('insertOrderedList')" title="Liste numérotée">1≡</button>
+      <button type="button" onclick="rteExec('insertHorizontalRule')" title="Séparateur">—</button>
+      <button type="button" onclick="rteExec('removeFormat')" title="Effacer la mise en forme">✕</button>
+      <button type="button" onclick="rteExec('undo')" title="Annuler">↺</button>
+      <button type="button" onclick="rteExec('redo')" title="Rétablir">↻</button>
+    </div>
+    <div id="rte-editor" class="rte-editor" style="min-height:220px;" contenteditable="true" oninput="complaintFormDraft.bodyHtml=this.innerHTML" placeholder="Rédige la plainte...">${d.bodyHtml}</div>
+
+    <label class="af-label">Preuves :</label>
+    <div id="complaint-evidence-thumbs" class="evidence-thumbs">${renderComplaintEvidenceThumbsHtml()}</div>
+    <input type="file" id="complaint-evidence-file-input" accept="image/*" multiple style="display:none;" onchange="handleComplaintEvidenceFiles(this.files)">
+    <button class="af-add-photo-btn" onclick="document.getElementById('complaint-evidence-file-input').click()">+</button>
+
+    <div class="field" style="margin-top:16px;max-width:420px;">
+      <label>Plainte prise par</label>
+      <select onchange="complaintFormDraft.takenByBadge=this.value">${officerOptions}</select>
+    </div>
+
+    <div class="af-row" style="margin-top:6px;flex-wrap:wrap;">
+      <div class="field" style="min-width:260px;">
+        <label>Suspect(s)</label>
+        <div class="citizen-combo">
+          <input type="text" id="complaint-suspect-search-input" class="citizen-combo-input" autocomplete="off"
+            placeholder="Rechercher un citoyen à ajouter..."
+            oninput="filterComplaintSuspectSearch(this)" onfocus="filterComplaintSuspectSearch(this)" onblur="hideCitizenComboLater(this)">
+          <div class="citizen-combo-results" id="complaint-suspect-search-input-results"></div>
+        </div>
+        <div class="af-linked-list" style="margin-top:8px;">${renderComplaintSuspectChipsHtml()}</div>
+      </div>
+      <div class="field" style="min-width:220px;">
+        <label>Agent(s) assigné(s)</label>
+        <select multiple size="4" onchange="syncComplaintMultiSelect(this,'assignedAgentBadges')">${agentOptions || '<option disabled>Aucun agent enregistré</option>'}</select>
+      </div>
+      <div class="field" style="min-width:180px;">
+        <label>Statut de la plainte</label>
+        <select onchange="complaintFormDraft.status=this.value">
+          ${COMPLAINT_STATUSES.map(s => `<option value="${escapeHtml(s)}" ${d.status===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="submitComplaint()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+function renderComplaintEvidenceThumbsHtml(){
+  if(!complaintFormDraft || !complaintFormDraft.evidencePhotos.length) return '<div class="helper-text">Aucune preuve ajoutée.</div>';
+  return complaintFormDraft.evidencePhotos.map((src,i) => `
+    <div class="evidence-thumb">
+      <img src="${src}">
+      <button onclick="removeComplaintEvidencePhoto(${i})" title="Retirer">✕</button>
+    </div>`).join('');
+}
+async function handleComplaintEvidenceFiles(fileList){
+  for(const file of [...fileList]){
+    if(!file.type.startsWith('image/')) continue;
+    const dataUrl = await resizeImageFile(file, 1000, 0.75);
+    complaintFormDraft.evidencePhotos.push(dataUrl);
+  }
+  document.getElementById('complaint-evidence-thumbs').innerHTML = renderComplaintEvidenceThumbsHtml();
+}
+function removeComplaintEvidencePhoto(index){
+  complaintFormDraft.evidencePhotos.splice(index, 1);
+  document.getElementById('complaint-evidence-thumbs').innerHTML = renderComplaintEvidenceThumbsHtml();
+}
+function renderComplaintSuspectChipsHtml(){
+  if(!complaintFormDraft.suspectIds.length) return '<span class="helper-text">Aucun suspect ajouté.</span>';
+  return complaintFormDraft.suspectIds.map(id => {
+    const c = DB.citizens.find(x => x.id === id);
+    if(!c) return '';
+    return `<span class="badge-chip" style="cursor:pointer;" onclick="removeComplaintSuspectChip('${id}')" title="Retirer">${escapeHtml(citizenIdentifierLabel(c))} ✕</span>`;
+  }).join('');
+}
+function filterComplaintSuspectSearch(inputEl){
+  const resultsEl = document.getElementById('complaint-suspect-search-input-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){ resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  const matches = DB.citizens
+    .filter(c => !complaintFormDraft.suspectIds.includes(c.id))
+    .filter(c => `${c.firstName} ${c.lastName}`.toLowerCase().includes(query))
+    .slice(0, 8);
+  resultsEl.innerHTML = matches.length
+    ? matches.map(c => `<div class="citizen-combo-item" data-citizen-id="${escapeHtml(c.id)}" onmousedown="addComplaintSuspectFromEl(this)">${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)} <span style="color:var(--text-faint);">${c.dob ? '— '+escapeHtml(c.dob) : '— DDN non renseignée'}</span></div>`).join('')
+    : `<div class="citizen-combo-empty">Aucun citoyen ne correspond.</div>`;
+  resultsEl.style.display = 'block';
+}
+function addComplaintSuspectFromEl(el){
+  const id = el.dataset.citizenId;
+  if(!complaintFormDraft.suspectIds.includes(id)) complaintFormDraft.suspectIds.push(id);
+  render();
+}
+function removeComplaintSuspectChip(id){
+  complaintFormDraft.suspectIds = complaintFormDraft.suspectIds.filter(x => x !== id);
+  render();
+}
+function syncComplaintMultiSelect(selectEl, field){
+  complaintFormDraft[field] = [...selectEl.selectedOptions].map(o => o.value);
+}
+async function submitComplaint(){
+  const d = complaintFormDraft;
+  if(!d.depositorId){ await infoDialog('Un dépositaire est requis.'); return; }
+  const payload = {
+    depositorId: d.depositorId, reason: d.reason, incidentDateTime: d.incidentDateTime,
+    bodyHtml: d.bodyHtml, evidencePhotos: d.evidencePhotos, takenByBadge: d.takenByBadge,
+    suspectIds: d.suspectIds, assignedAgentBadges: d.assignedAgentBadges, status: d.status
+  };
+  let complaintNumber = d.complaintNumber || nextComplaintNumber();
+  if(d.id){
+    const existing = DB.complaints.find(c => c.id === d.id);
+    Object.assign(existing, payload);
+  } else {
+    DB.complaints.push({ id: uid('plt'), complaintNumber, ...payload, date: nowISO(), author: SESSION.callsign });
+  }
+  const saved = await saveKey('complaints');
+  if(!saved){
+    await infoDialog("L'enregistrement a échoué (erreur de stockage). Réessaie dans un instant — tes données restent dans le formulaire.");
+    return;
+  }
+  await logAction(d.id ? 'Modification plainte' : 'Création plainte', complaintNumber);
+  complaintFormDraft = null;
+  goPage('complaints');
+}
+
+/* ===================== DOSSIER — PPA (PERMIS DE PORT D'ARME) ===================== */
+const PPA_CATEGORIES = [
+  'Arme de poing (catégorie B)','Arme d\u2019épaule (catégorie C)','Arme de chasse',
+  'Arme de collection (catégorie D)','Arme de tir sportif','Autre'
+];
+const PPA_STATUSES = ['Actif','Suspendu','Révoqué','Expiré'];
+function ppaStatusTag(s){
+  if(s === 'Suspendu') return '<span class="tag tag-amber">Suspendu</span>';
+  if(s === 'Révoqué') return '<span class="tag tag-red">Révoqué</span>';
+  if(s === 'Expiré') return '<span class="tag tag-grey">Expiré</span>';
+  return '<span class="tag tag-green">Actif</span>';
+}
+function nextPpaNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.ppas.filter(p => p.permitNumber && p.permitNumber.includes('-'+year+'-')).length + 1;
+  return `PPA-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function ppaHolderLabel(p){
+  const c = DB.citizens.find(x => x.id === p.citizenId);
+  return c ? citizenIdentifierLabel(c) : '(fiche supprimée)';
+}
+let ppaSearch = '';
+function renderPPAs(){
+  const list = DB.ppas
+    .filter(p => (ppaHolderLabel(p)+' '+p.permitNumber+' '+p.category).toLowerCase().includes(ppaSearch.toLowerCase()))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">PPA</div><div class="page-sub">PERMIS DE PORT D'ARME</div></div>
+      <button class="btn btn-primary" onclick="openPpaModal()">+ Attribuer un PPA</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un titulaire, un n° de permis..." value="${escapeHtml(ppaSearch)}" oninput="ppaSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N° Permis</th><th>Titulaire</th><th>Catégorie</th><th>Délivré le</th><th>Expire le</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(p => `
+          <tr>
+            <td class="mono row-name">${escapeHtml(p.permitNumber)}</td>
+            <td>${escapeHtml(ppaHolderLabel(p))}</td>
+            <td><span class="tag tag-grey">${escapeHtml(p.category)}</span></td>
+            <td class="mono">${p.issueDate ? escapeHtml(p.issueDate) : '—'}</td>
+            <td class="mono">${p.expiryDate ? escapeHtml(p.expiryDate) : '—'}</td>
+            <td>${ppaStatusTag(p.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="openPpaModal('${p.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="deleteEntity('ppas','${p.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">🔫</div>Aucun PPA délivré.</div>`}
+  `;
+}
+function openPpaModal(id){
+  const existing = id ? DB.ppas.find(p => p.id === id) : null;
+  const today = new Date().toISOString().slice(0,10);
+  showModal({
+    title: existing ? 'Modifier le PPA' : 'Attribuer un PPA',
+    fields: [
+      { key:'citizenId', label:'Titulaire', type:'citizen-search',
+        helper: DB.citizens.length ? "Lié à une fiche citoyen existante." : "Crée d'abord une fiche citoyen pour pouvoir lui attribuer un PPA." },
+      { key:'category', label:'Catégorie d\u2019arme autorisée', type:'select', options:PPA_CATEGORIES },
+      { key:'issueDate', label:'Date de délivrance', type:'date' },
+      { key:'expiryDate', label:'Date d\u2019expiration', type:'date' },
+      { key:'status', label:'Statut', type:'select', options:PPA_STATUSES },
+      { key:'notes', label:'Notes', type:'textarea' },
+    ],
+    initial: existing || { status:'Actif', issueDate: today },
+    onSubmit: async (data) => {
+      if(!data.citizenId){ await infoDialog('Un titulaire est requis.'); return; }
+      let permitNumber = existing ? existing.permitNumber : nextPpaNumber();
+      if(existing) Object.assign(existing, data);
+      else DB.ppas.push({ id: uid('ppa'), permitNumber, ...data, date: nowISO(), author: SESSION.callsign });
+      await saveKey('ppas');
+      await logAction(existing ? 'Modification PPA' : 'Attribution PPA', `${permitNumber} — ${ppaHolderLabel(existing || data)}`);
       render();
     }
   });
@@ -2820,7 +3555,7 @@ function renderLogs(){
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
   penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
-  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie'
+  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte'
 };
 async function deleteEntity(collection, id){
   const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');
@@ -2843,17 +3578,22 @@ async function deleteEntity(collection, id){
 function buildPublicReportUrl(bookingNumber){
   return location.origin + location.pathname + '?public_report=' + encodeURIComponent(bookingNumber);
 }
-function openPublicLinkModal(bookingNumber){
-  const url = buildPublicReportUrl(bookingNumber);
+function buildPublicComplaintUrl(complaintNumber){
+  return location.origin + location.pathname + '?public_complaint=' + encodeURIComponent(complaintNumber);
+}
+function openPublicLinkModal(number, kind){
+  // kind : 'report' (par défaut, rétrocompatible) ou 'complaint'
+  const url = kind === 'complaint' ? buildPublicComplaintUrl(number) : buildPublicReportUrl(number);
+  const label = kind === 'complaint' ? 'Lien public de la plainte' : 'Lien public du rapport';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
   backdrop.innerHTML = `
     <div class="modal" style="width:520px;">
-      <div class="modal-head"><h3>Lien public du rapport</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-head"><h3>${escapeHtml(label)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
       <div class="modal-body">
         <p style="margin:0 0 10px;color:var(--text-dim);font-size:13px;line-height:1.5;">
-          Toute personne disposant de ce lien peut consulter ce rapport, sans avoir besoin de se connecter au terminal.
+          Toute personne disposant de ce lien peut consulter ce document, sans avoir besoin de se connecter au terminal.
         </p>
         <input id="public-link-input" type="text" value="${escapeHtml(url)}" readonly
           style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:var(--radius);font-family:var(--font-mono);font-size:12px;"
@@ -2890,6 +3630,15 @@ async function copyPublicLink(){
 function publicPenalCategoryLabel(cat){
   return cat || '—';
 }
+function pubdocBadgeSvg(){
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="46" fill="#0f1f33" stroke="#c8a24a" stroke-width="3"/>
+    <circle cx="50" cy="50" r="38" fill="none" stroke="#c8a24a" stroke-width="1"/>
+    <path d="M50 24 L62 30 L62 48 C62 60 56 68 50 72 C44 68 38 60 38 48 L38 30 Z" fill="#c8a24a"/>
+    <text x="50" y="53" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#0f1f33" font-weight="700">SA</text>
+    <text x="50" y="90" text-anchor="middle" font-family="Arial" font-size="6" fill="#c8a24a" letter-spacing="1">SAN ANDREAS</text>
+  </svg>`;
+}
 function renderPublicReport(idOrBooking){
   const root = document.getElementById('public-report-root');
   document.getElementById('app').style.display = 'none';
@@ -2906,19 +3655,13 @@ function renderPublicReport(idOrBooking){
 
   const suspects = (a.suspectIds||[]).map(id => DB.citizens.find(c=>c.id===id)).filter(Boolean);
   const responsible = DB.officers.find(o => o.badge === a.responsibleBadge);
-  const charges = (a.chargeIds||[]).map(id => DB.penalCode.find(p=>p.id===id)).filter(Boolean);
+  const charges = resolveArrestCharges(a);
   const suspectNames = suspects.length ? suspects.map(c=>`${c.firstName} ${c.lastName}`.trim()).join(', ') : (a.subject || 'Suspect inconnu');
   const d = new Date(a.date);
   const dateStr = d.toLocaleDateString('fr-FR');
   const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 
-  const badgeSvg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="46" fill="#0f1f33" stroke="#c8a24a" stroke-width="3"/>
-    <circle cx="50" cy="50" r="38" fill="none" stroke="#c8a24a" stroke-width="1"/>
-    <path d="M50 24 L62 30 L62 48 C62 60 56 68 50 72 C44 68 38 60 38 48 L38 30 Z" fill="#c8a24a"/>
-    <text x="50" y="53" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#0f1f33" font-weight="700">SA</text>
-    <text x="50" y="90" text-anchor="middle" font-family="Arial" font-size="6" fill="#c8a24a" letter-spacing="1">SAN ANDREAS</text>
-  </svg>`;
+  const badgeSvg = pubdocBadgeSvg();
 
   root.innerHTML = `
     <div class="pubdoc">
@@ -2935,7 +3678,7 @@ function renderPublicReport(idOrBooking){
 
       <div class="pubdoc-section-title">Rédacteur</div>
       <div class="pubdoc-redactor">
-        <b>${responsible ? escapeHtml(responsible.name) : 'Agent inconnu'}</b>${responsible ? ', ' + escapeHtml(responsible.rank) : ''}
+        <b>Matricule ${responsible ? escapeHtml(responsible.badge) : 'inconnu'}</b>
       </div>
 
       <div class="pubdoc-section-title">Suspect(s)</div>
@@ -2954,15 +3697,16 @@ function renderPublicReport(idOrBooking){
 
       <div class="pubdoc-section-title">Chefs d'inculpation</div>
       <table class="pubdoc-table">
-        <thead><tr><th>Catégorie</th><th>Nom</th><th>Amende</th><th>UP</th></tr></thead>
+        <thead><tr><th>Catégorie</th><th>Nom</th><th>Quantité</th><th>Amende</th><th>UP</th></tr></thead>
         <tbody>
-          ${charges.length ? charges.map(c => `
+          ${charges.length ? charges.map(x => `
             <tr>
-              <td>${escapeHtml(publicPenalCategoryLabel(c.category))}</td>
-              <td>${escapeHtml(c.code)} — ${escapeHtml(c.title)}</td>
-              <td>${c.fine ? formatMoney(c.fine) : '—'}</td>
-              <td>${c.jailTime ? escapeHtml(c.jailTime)+' mois' : '—'}</td>
-            </tr>`).join('') : `<tr><td colspan="4">Aucun chef retenu</td></tr>`}
+              <td>${escapeHtml(publicPenalCategoryLabel(x.entry.category))}</td>
+              <td>${escapeHtml(x.entry.code)} — ${escapeHtml(x.entry.title)}</td>
+              <td>${x.quantity}</td>
+              <td>${x.entry.fine ? formatMoney(parseFloat(String(x.entry.fine).replace(',','.').replace(/[^0-9.-]/g,''))*x.quantity) : '—'}</td>
+              <td>${x.entry.jailTime ? escapeHtml(x.entry.jailTime)+' mois' : '—'}</td>
+            </tr>`).join('') : `<tr><td colspan="5">Aucun chef retenu</td></tr>`}
         </tbody>
       </table>
 
@@ -2980,7 +3724,74 @@ function renderPublicReport(idOrBooking){
       <div class="pubdoc-section-title">Corps du rapport</div>
       <div class="pubdoc-body-box">${a.reportHtml || '<span style="color:#9aa3b0;">Aucun rapport rédigé.</span>'}</div>
 
-      <div class="pubdoc-sign">${responsible ? escapeHtml(responsible.rank) + ' — ' + escapeHtml(responsible.name) : ''}</div>
+      <div class="pubdoc-sign">${responsible ? 'Matricule ' + escapeHtml(responsible.badge) : ''}</div>
+      <div class="pubdoc-footer">Département de Police de San Andreas</div>
+    </div>
+  `;
+}
+function renderPublicComplaint(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const c = DB.complaints.find(x => x.complaintNumber === idOrNumber || x.id === idOrNumber);
+  if(!c){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Plainte introuvable</h2>
+      <p>Ce lien ne correspond à aucune plainte enregistrée, ou elle a été supprimée.</p>
+    </div>`;
+    return;
+  }
+
+  const depositor = DB.citizens.find(x => x.id === c.depositorId);
+  const takenBy = DB.officers.find(o => o.badge === c.takenByBadge);
+  const suspects = (c.suspectIds||[]).map(id => DB.citizens.find(x=>x.id===id)).filter(Boolean);
+  const agents = (c.assignedAgentBadges||[]).map(b => DB.officers.find(o=>o.badge===b)).filter(Boolean);
+  const d = new Date(c.date);
+  const dateStr = d.toLocaleDateString('fr-FR');
+  const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+  root.innerHTML = `
+    <div class="pubdoc">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${pubdocBadgeSvg()}</div>
+        <div>
+          <h1 class="pubdoc-title">Plainte${c.reason ? ' : '+escapeHtml(c.reason) : ''}</h1>
+          <div class="pubdoc-subtitle">Document émis par le Département de Police de San Andreas</div>
+          <div class="pubdoc-ref">Référence : ${escapeHtml(c.complaintNumber)} · ${escapeHtml(c.id)}</div>
+        </div>
+      </div>
+
+      <div class="pubdoc-line">Rédigée le ${dateStr} à ${timeStr}${c.incidentDateTime ? ' — faits survenus le '+new Date(c.incidentDateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : ''}</div>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Dépositaire</th><th>Officier rédacteur</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${depositor ? escapeHtml(depositor.firstName)+' '+escapeHtml(depositor.lastName) : 'Non renseigné'}${depositor && depositor.phone ? '<br><span style="color:#9aa3b0;">'+escapeHtml(depositor.phone)+'</span>' : ''}</td>
+            <td>${takenBy ? `<b>Matricule ${escapeHtml(takenBy.badge)}</b>` : 'Agent inconnu'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      ${suspects.length ? `
+      <div class="pubdoc-section-title">Suspect(s)</div>
+      <div class="pubdoc-line" style="margin-bottom:6px;">${suspects.map(s=>escapeHtml(s.firstName)+' '+escapeHtml(s.lastName)).join(', ')}</div>` : ''}
+
+      ${agents.length ? `
+      <div class="pubdoc-section-title">Agent(s) assigné(s)</div>
+      <div class="pubdoc-line" style="margin-bottom:6px;">${agents.map(o=>'Matricule '+escapeHtml(o.badge)).join(', ')}</div>` : ''}
+
+      <div class="pubdoc-tag ${c.status==='Résolue'?'pubdoc-tag-ok':'pubdoc-tag-warn'}" style="margin:6px 0 16px;">Statut : ${escapeHtml(c.status||'Ouverte')}</div>
+
+      ${c.evidencePhotos && c.evidencePhotos.length ? `
+      <div class="pubdoc-section-title">Preuves</div>
+      <div class="pubdoc-evidence">${c.evidencePhotos.map(src => `<img src="${src}">`).join('')}</div>` : ''}
+
+      <div class="pubdoc-section-title">Récit</div>
+      <div class="pubdoc-body-box">${c.bodyHtml || '<span style="color:#9aa3b0;">Aucun texte rédigé.</span>'}</div>
+
+      <div class="pubdoc-sign">${takenBy ? 'Matricule ' + escapeHtml(takenBy.badge) : ''}</div>
       <div class="pubdoc-footer">Département de Police de San Andreas</div>
     </div>
   `;
@@ -2993,6 +3804,12 @@ async function init(){
     await loadAll();
     renderPublicReport(publicId);
     return; // pas de connexion nécessaire pour consulter un rapport public
+  }
+  const publicComplaintId = new URLSearchParams(location.search).get('public_complaint');
+  if(publicComplaintId){
+    await loadAll();
+    renderPublicComplaint(publicComplaintId);
+    return; // pas de connexion nécessaire pour consulter une plainte publique
   }
   await loadAll();
   const sess = await loadSession();

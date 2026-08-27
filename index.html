@@ -472,11 +472,11 @@
         <div class="nav-section-label">Base de données</div>
         <div class="nav-item" data-page="citizens" onclick="goPage('citizens')"><span class="nav-icon">☰</span> Citoyens <span class="nav-count" id="count-citizens">0</span></div>
         <div class="nav-item" data-page="organizations" onclick="goPage('organizations')"><span class="nav-icon">⌘</span> Organisations / Gangs <span class="nav-count" id="count-organizations">0</span></div>
-        <div class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> Rapports <span class="nav-count" id="count-reports">0</span></div>
         <div class="nav-item" data-page="warrants" onclick="goPage('warrants')"><span class="nav-icon">⚠</span> Mandats <span class="nav-count" id="count-warrants">0</span></div>
         <div class="nav-item" data-page="penalcode" onclick="goPage('penalcode')"><span class="nav-icon">§</span> Code Pénal <span class="nav-count" id="count-penalcode">0</span></div>
         <div class="nav-section-label">Dossier</div>
         <div class="nav-item" data-page="arrestReports" onclick="goPage('arrestReports')"><span class="nav-icon">⛓</span> Rapport d'arrestation <span class="nav-count" id="count-arrestReports">0</span></div>
+        <div class="nav-item" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> Rapports <span class="nav-count" id="count-reports">0</span></div>
         <div class="nav-item" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
         <div class="nav-item" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
         <div class="nav-item" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
@@ -977,6 +977,23 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
         ${helper}
       </div>`;
     }
+    if(f.type === 'officer-search'){
+      const selectedOfficer = val ? DB.officers.find(o => o.badge === val) : null;
+      const displayVal = selectedOfficer ? `[${selectedOfficer.badge}] ${selectedOfficer.name}` : '';
+      const helper2 = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      return `<div class="field">
+        <label>${f.label}</label>
+        <div class="citizen-combo">
+          <input type="text" id="mf-${f.key}-display" class="citizen-combo-input" autocomplete="off"
+            placeholder="${DB.officers.length ? 'Rechercher un agent par nom ou matricule...' : 'Aucun agent enregistré'}"
+            value="${escapeHtml(displayVal)}"
+            oninput="filterOfficerCombo(this)" onfocus="filterOfficerCombo(this)" onblur="hideCitizenComboLater(this)">
+          <input type="hidden" id="mf-${f.key}" value="${escapeHtml(val)}">
+          <div class="citizen-combo-results" id="mf-${f.key}-results"></div>
+        </div>
+        ${helper2}
+      </div>`;
+    }
     if(f.type === 'multiselect'){
       const selected = Array.isArray(val) ? val : [];
       const normOpts = f.options.map(o => typeof o === 'object' ? o : {value:o, label:o});
@@ -1080,6 +1097,39 @@ function selectCitizenComboFromEl(el){
   resultsEl.style.display = 'none';
   syncCitizenComboToPageDraft(hiddenId, el.dataset.citizenId);
 }
+/* Champ de recherche d'agent (utilisé par le type de champ 'officer-search' de showModal) —
+   même principe que citizen-search, mais recherche parmi les effectifs (DB.officers) par nom ou matricule. */
+function filterOfficerCombo(inputEl){
+  const hiddenId = inputEl.id.replace('-display','');
+  const hiddenInput = document.getElementById(hiddenId);
+  const resultsEl = document.getElementById(hiddenId+'-results');
+  const query = inputEl.value.trim().toLowerCase();
+  if(!query){
+    hiddenInput.value = '';
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+    return;
+  }
+  const matches = DB.officers
+    .filter(o => `${o.name} ${o.badge}`.toLowerCase().includes(query))
+    .slice(0, 8);
+  if(!matches.length){
+    resultsEl.innerHTML = `<div class="citizen-combo-empty">Aucun agent ne correspond.</div>`;
+  } else {
+    resultsEl.innerHTML = matches.map(o => `
+      <div class="citizen-combo-item" data-officer-badge="${escapeHtml(o.badge)}" data-officer-name="${escapeHtml('['+o.badge+'] '+o.name)}" onmousedown="selectOfficerComboFromEl(this)">
+        [${escapeHtml(o.badge)}] ${escapeHtml(o.name)} <span style="color:var(--text-faint);">${o.rank ? '— '+escapeHtml(o.rank) : ''}</span>
+      </div>`).join('');
+  }
+  resultsEl.style.display = 'block';
+}
+function selectOfficerComboFromEl(el){
+  const resultsEl = el.parentElement;
+  const hiddenId = resultsEl.id.replace('-results','');
+  document.getElementById(hiddenId).value = el.dataset.officerBadge;
+  document.getElementById(hiddenId+'-display').value = el.dataset.officerName;
+  resultsEl.style.display = 'none';
+}
 // Ce champ de recherche (citizen-search) est aussi utilisé en dehors des modales (ex. le
 // dépositaire d'une plainte, sur une page dédiée) : quand c'est le cas, un rendu complet de
 // la page déclenché par une autre interaction (ex. ajout d'un suspect) régénère ce champ
@@ -1158,6 +1208,8 @@ function render(){
   else if(currentPage === 'complaints') c.innerHTML = renderComplaints();
   else if(currentPage === 'complaintForm') c.innerHTML = renderComplaintForm();
   else if(currentPage === 'reports') c.innerHTML = renderReports();
+  else if(currentPage === 'reportForm') c.innerHTML = renderReportForm();
+  else if(currentPage === 'detectiveReportForm') c.innerHTML = renderDetectiveReportForm();
   else if(currentPage === 'warrants') c.innerHTML = renderWarrants();
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
@@ -1263,12 +1315,15 @@ function renderDispatch(){
 
   const callCard = (d) => {
     const assignedUnitObjs = d.assignedUnits || []; // [{id, name}] — le nom est figé au moment de l'assignation
+    const supervisorOfficer = d.supervisorBadge ? DB.officers.find(o => o.badge === d.supervisorBadge) : null;
+    const dispatcherOfficer = d.dispatcherBadge ? DB.officers.find(o => o.badge === d.dispatcherBadge) : null;
     return `
     <div class="dispatch-card" style="--dispatch-color:${dispatchPriorityColor(d.priority)};">
       <div class="dispatch-head">
         <div>
           <div class="dispatch-title">${escapeHtml(d.type)}</div>
           <div class="dispatch-meta">${escapeHtml(d.location||'Localisation non précisée')} · ${fmtDate(d.date)} · Signalé par ${escapeHtml(d.author)}</div>
+          ${(supervisorOfficer || dispatcherOfficer) ? `<div class="dispatch-meta">${supervisorOfficer ? 'Superviseur : [' + escapeHtml(supervisorOfficer.badge) + '] ' + escapeHtml(supervisorOfficer.name) : ''}${supervisorOfficer && dispatcherOfficer ? ' · ' : ''}${dispatcherOfficer ? 'Dispatcheur : [' + escapeHtml(dispatcherOfficer.badge) + '] ' + escapeHtml(dispatcherOfficer.name) : ''}</div>` : ''}
         </div>
         <div style="display:flex;gap:6px;flex:none;">${dispatchPriorityTag(d.priority)}${dispatchStatusTag(d.status)}</div>
       </div>
@@ -1550,6 +1605,8 @@ function openDispatchModal(id){
       { key:'priority', label:'Priorité', type:'select', options:DISPATCH_PRIORITIES },
       { key:'location', label:'Localisation' },
       { key:'description', label:'Détails', type:'textarea' },
+      { key:'supervisorBadge', label:'Superviseur', type:'officer-search' },
+      { key:'dispatcherBadge', label:'Dispatcheur', type:'officer-search' },
     ],
     initial: existing || { priority:'Moyenne' },
     onSubmit: async (data) => {
@@ -1725,7 +1782,7 @@ function renderDashboard(){
   const openReports = DB.reports.filter(r => r.status === 'Ouvert').length;
 
   const recent = [
-    ...DB.reports.map(r => ({ t:r.date, text:`Rapport <b>${escapeHtml(r.caseNumber)}</b> créé — ${escapeHtml(r.title)}`, by:r.author })),
+    ...DB.reports.map(r => ({ t:r.date, text:`Rapport <b>${escapeHtml(r.caseNumber)}</b> créé — ${escapeHtml(r.interventionType || '')} (${escapeHtml(r.location || '')})`, by:r.author })),
     ...DB.warrants.map(w => ({ t:w.date, text:`Mandat émis contre <b>${escapeHtml(w.subject)}</b>`, by:w.author })),
     ...DB.citizens.map(c => ({ t:c.date, text:`Fiche citoyen créée — <b>${escapeHtml(c.firstName+' '+c.lastName)}</b>`, by:c.author })),
   ].sort((a,b) => new Date(b.t) - new Date(a.t)).slice(0,8);
@@ -1808,6 +1865,9 @@ function renderCitizenDetail(){
   const arrests = DB.arrestReports
     .filter(a => Array.isArray(a.suspectIds) && a.suspectIds.includes(c.id))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
+  const complaints = DB.complaints
+    .filter(cp => Array.isArray(cp.suspectIds) && cp.suspectIds.includes(c.id))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
 
   return `
     <div class="page-head">
@@ -1856,9 +1916,16 @@ function renderCitizenDetail(){
       <span class="helper-text">Aucune arme enregistrée.</span>
     </div>
 
-    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;">Plaintes</div>
-    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:14px 16px;">
-      <span class="helper-text">Aucune.</span>
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Plaintes</span>
+      <button class="btn btn-sm" onclick="openNewComplaintPage(null,'${c.id}')">+ Créer une plainte</button>
+    </div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:4px 0;">
+      ${complaints.length ? complaints.map(cp => `
+        <div class="activity-row" style="cursor:pointer;" onclick="window.open(buildPublicComplaintUrl('${cp.complaintNumber}'), '_blank')" title="Voir la plainte publique">
+          <div class="activity-time">${new Date(cp.date).toLocaleDateString('fr-FR')}</div>
+          <div class="activity-text"><b class="mono">${escapeHtml(cp.complaintNumber)}</b> ${escapeHtml(cp.reason)||''} ${complaintStatusTag(cp.status)} <span style="color:var(--text-faint);">↗ voir la plainte publique</span></div>
+        </div>`).join('') : `<div class="helper-text" style="padding:14px 16px;">Aucune.</div>`}
     </div>
 
     <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
@@ -2542,6 +2609,8 @@ function rteExec(cmd, arg){
   try{ document.execCommand(cmd, false, arg || null); }catch(e){ console.warn('rteExec', cmd, e); }
   if(currentPage === 'arrestReportForm' && arrestFormDraft) arrestFormDraft.reportHtml = editor.innerHTML;
   else if(currentPage === 'complaintForm' && complaintFormDraft) complaintFormDraft.bodyHtml = editor.innerHTML;
+  else if(currentPage === 'reportForm' && reportFormDraft) reportFormDraft.bodyHtml = editor.innerHTML;
+  else if(currentPage === 'detectiveReportForm' && detectiveReportFormDraft) detectiveReportFormDraft.bodyHtml = editor.innerHTML;
 }
 function syncArrestMultiSelect(selectEl, field){
   arrestFormDraft[field] = [...selectEl.selectedOptions].map(o => o.value);
@@ -2900,13 +2969,13 @@ function openComplaintView(id){
 }
 
 let complaintFormDraft = null;
-function openNewComplaintPage(presetDepositorId){
+function openNewComplaintPage(presetDepositorId, presetSuspectId){
   complaintFormDraft = {
     id: null, complaintNumber: null,
     depositorId: presetDepositorId || '', reason: '', incidentDateTime: '',
     bodyHtml: '', evidencePhotos: [],
     takenByBadge: SESSION.badge,
-    suspectIds: [], assignedAgentBadges: [],
+    suspectIds: presetSuspectId ? [presetSuspectId] : [], assignedAgentBadges: [],
     status: 'Ouverte'
   };
   currentPage = 'complaintForm';
@@ -3179,62 +3248,258 @@ function openPpaModal(id){
 }
 
 /* ===================== REPORTS ===================== */
+const INTERVENTION_TYPES = ['Braquage','Fusillade','Descente','Poursuite','Contrôle routier','Accident','Enlèvement','Trafic de stupéfiants','Homicide','Émeute','Prise d\'otage','Autre'];
 function nextCaseNumber(){
   const year = new Date().getFullYear();
   const countThisYear = DB.reports.filter(r => r.caseNumber && r.caseNumber.includes('-'+year+'-')).length + 1;
   return `SA-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function toLocalDatetimeValue(date){
+  const d = new Date(date);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function renderReports(){
   const list = [...DB.reports].sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
       <div><div class="page-title">Rapports</div><div class="page-sub">DOSSIERS D'INCIDENTS</div></div>
-      <button class="btn btn-primary" onclick="openReportModal()">+ Nouveau rapport</button>
+      <button class="btn btn-primary" onclick="openNewReportPage()">+ Nouveau rapport</button>
     </div>
     ${list.length ? `
     <table>
-      <thead><tr><th>N° Dossier</th><th>Titre</th><th>Type</th><th>Date</th><th>Statut</th><th></th></tr></thead>
+      <thead><tr><th>N° Dossier</th><th>Lieu</th><th>Type d'intervention</th><th>Date</th><th>Statut</th><th></th></tr></thead>
       <tbody>
         ${list.map(r => `
-          <tr>
+          <tr style="cursor:pointer;" onclick="openReportView('${r.id}')">
             <td class="mono row-name">${escapeHtml(r.caseNumber)}</td>
-            <td>${escapeHtml(r.title)}</td>
-            <td><span class="tag tag-blue">${escapeHtml(r.type)}</span></td>
-            <td class="mono">${new Date(r.date).toLocaleDateString('fr-FR')}</td>
+            <td>${escapeHtml(r.location || '—')}</td>
+            <td><span class="tag tag-blue">${escapeHtml(r.interventionType || '—')}</span></td>
+            <td class="mono">${new Date(r.dateTime || r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</td>
             <td>${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : '<span class="tag tag-green">Clos</span>'}</td>
             <td class="row-actions">
-              <button class="icon-btn" onclick="openReportModal('${r.id}')">Modifier</button>
-              <button class="icon-btn danger" onclick="deleteEntity('reports','${r.id}')">Suppr.</button>
+              <button class="icon-btn" onclick="event.stopPropagation();openEditReportPage('${r.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('reports','${r.id}')">Suppr.</button>
             </td>
           </tr>`).join('')}
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">▤</div>Aucun rapport rédigé.</div>`}
   `;
 }
-function openReportModal(id){
-  const existing = id ? DB.reports.find(r => r.id === id) : null;
-  showModal({
-    title: existing ? 'Modifier le rapport' : "Nouveau rapport d'incident",
-    fields: [
-      { key:'title', label:'Titre' },
-      { key:'type', label:'Type', type:'select', options:['Infraction routière','Agression','Vol','Cambriolage','Trafic','Homicide','Divers'] },
-      { key:'status', label:'Statut', type:'select', options:['Ouvert','Clos'] },
-      { key:'involved', label:'Personnes / agents impliqués' },
-      { key:'narrative', label:'Récit des faits', type:'textarea' },
-    ],
-    initial: existing || {},
-    onSubmit: async (data) => {
-      let caseNumber = existing ? existing.caseNumber : nextCaseNumber();
-      if(existing) Object.assign(existing, data);
-      else DB.reports.push({ id: uid('rep'), caseNumber, ...data, date: nowISO(), author: SESSION.callsign });
-      await saveKey('reports');
-      await logAction(existing ? 'Modification rapport' : 'Création rapport', `${caseNumber} — ${data.title}`);
-      render();
-    }
-  });
+let reportFormDraft = null;
+function openNewReportPage(){
+  reportFormDraft = {
+    id: null, caseNumber: null,
+    location: '', dateTime: toLocalDatetimeValue(new Date()),
+    interventionType: '', status: 'Ouvert', bodyHtml: '',
+    dispatcherBadge: '', supervisorBadge: '', orgIds: [], evidencePhotos: []
+  };
+  currentPage = 'reportForm';
+  render();
+}
+function openEditReportPage(id){
+  const existing = DB.reports.find(r => r.id === id);
+  if(!existing) return;
+  reportFormDraft = {
+    id: existing.id, caseNumber: existing.caseNumber,
+    location: existing.location || '', dateTime: existing.dateTime || toLocalDatetimeValue(existing.date || new Date()),
+    interventionType: existing.interventionType || '', status: existing.status || 'Ouvert',
+    bodyHtml: existing.bodyHtml || existing.narrative || '',
+    dispatcherBadge: existing.dispatcherBadge || '', supervisorBadge: existing.supervisorBadge || '',
+    orgIds: existing.orgIds ? existing.orgIds.slice() : [],
+    evidencePhotos: existing.evidencePhotos ? existing.evidencePhotos.slice() : []
+  };
+  currentPage = 'reportForm';
+  render();
+}
+function renderReportForm(){
+  if(!reportFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = reportFormDraft;
+  const officerOptions = `<option value="">—</option>` + DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.dispatcherBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+  const supervisorOptions = `<option value="">—</option>` + DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.supervisorBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+  const orgOptions = DB.organizations.map(o => `<option value="${escapeHtml(o.id)}" ${d.orgIds.includes(o.id)?'selected':''}>${escapeHtml(o.name)}</option>`).join('');
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('reports')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier le rapport' : 'Nouveau rapport'}</div>${d.caseNumber ? `<div class="page-sub">${escapeHtml(d.caseNumber)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="af-row">
+      <div class="field">
+        <label>Lieu :</label>
+        <input type="text" id="report-location" value="${escapeHtml(d.location)}" placeholder="Plage de Vespucci" oninput="reportFormDraft.location=this.value">
+      </div>
+      <div class="field">
+        <label>Date et heure :</label>
+        <input type="datetime-local" id="report-datetime" value="${escapeHtml(d.dateTime)}" onchange="reportFormDraft.dateTime=this.value">
+      </div>
+    </div>
+
+    <div class="af-row">
+      <div class="field">
+        <label>Type d'intervention / opération :</label>
+        <select onchange="reportFormDraft.interventionType=this.value">
+          <option value="">— Sélectionner —</option>
+          ${INTERVENTION_TYPES.map(t => `<option value="${escapeHtml(t)}" ${d.interventionType===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Statut :</label>
+        <select onchange="reportFormDraft.status=this.value">
+          <option value="Ouvert" ${d.status==='Ouvert'?'selected':''}>Ouvert</option>
+          <option value="Clos" ${d.status==='Clos'?'selected':''}>Clos</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="af-label">Rapport :</label>
+    <div class="rte-toolbar">
+      <button type="button" onclick="rteExec('bold')" title="Gras"><b>B</b></button>
+      <button type="button" onclick="rteExec('italic')" title="Italique"><i>I</i></button>
+      <button type="button" onclick="rteExec('underline')" title="Souligné"><u>U</u></button>
+      <button type="button" onclick="rteExec('strikeThrough')" title="Barré"><s>S</s></button>
+      <button type="button" onclick="rteExec('formatBlock','H1')" title="Titre 1">H1</button>
+      <button type="button" onclick="rteExec('formatBlock','H2')" title="Titre 2">H2</button>
+      <button type="button" onclick="rteExec('insertUnorderedList')" title="Liste à puces">•≡</button>
+      <button type="button" onclick="rteExec('insertOrderedList')" title="Liste numérotée">1≡</button>
+      <button type="button" onclick="rteExec('insertHorizontalRule')" title="Séparateur">—</button>
+      <button type="button" onclick="rteExec('removeFormat')" title="Effacer la mise en forme">✕</button>
+      <button type="button" onclick="rteExec('undo')" title="Annuler">↺</button>
+      <button type="button" onclick="rteExec('redo')" title="Rétablir">↻</button>
+    </div>
+    <div id="rte-editor" class="rte-editor" style="min-height:280px;" contenteditable="true" oninput="reportFormDraft.bodyHtml=this.innerHTML" placeholder="Détaille le déroulement de l'intervention...">${d.bodyHtml}</div>
+
+    <label class="af-label">Preuves :</label>
+    <div id="report-evidence-thumbs" class="evidence-thumbs">${renderReportEvidenceThumbsHtml()}</div>
+    <input type="file" id="report-evidence-file-input" accept="image/*" multiple style="display:none;" onchange="handleReportEvidenceFiles(this.files)">
+    <button class="af-add-photo-btn" onclick="document.getElementById('report-evidence-file-input').click()">+</button>
+
+    <div class="field" style="margin-top:16px;max-width:420px;">
+      <label>Dispatcher en charge :</label>
+      <select onchange="reportFormDraft.dispatcherBadge=this.value">${officerOptions}</select>
+    </div>
+
+    <div class="field" style="max-width:420px;">
+      <label>Supervisor en charge :</label>
+      <select onchange="reportFormDraft.supervisorBadge=this.value">${supervisorOptions}</select>
+    </div>
+
+    <div class="field" style="max-width:420px;">
+      <label>Groupes impliqués :</label>
+      <select multiple size="4" onchange="syncReportMultiSelect(this,'orgIds')">${orgOptions || '<option disabled>Aucun groupe enregistré</option>'}</select>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="submitReport()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+function syncReportMultiSelect(selectEl, field){
+  reportFormDraft[field] = [...selectEl.selectedOptions].map(o => o.value);
+}
+function renderReportEvidenceThumbsHtml(){
+  if(!reportFormDraft || !reportFormDraft.evidencePhotos.length) return '<div class="helper-text">Aucune preuve ajoutée.</div>';
+  return reportFormDraft.evidencePhotos.map((src,i) => `
+    <div class="evidence-thumb">
+      <img src="${src}">
+      <button onclick="removeReportEvidencePhoto(${i})" title="Retirer">✕</button>
+    </div>`).join('');
+}
+async function handleReportEvidenceFiles(fileList){
+  for(const file of [...fileList]){
+    if(!file.type.startsWith('image/')) continue;
+    const dataUrl = await resizeImageFile(file, 1000, 0.75);
+    reportFormDraft.evidencePhotos.push(dataUrl);
+  }
+  document.getElementById('report-evidence-thumbs').innerHTML = renderReportEvidenceThumbsHtml();
+}
+function removeReportEvidencePhoto(index){
+  reportFormDraft.evidencePhotos.splice(index, 1);
+  document.getElementById('report-evidence-thumbs').innerHTML = renderReportEvidenceThumbsHtml();
+}
+async function submitReport(){
+  const d = reportFormDraft;
+  if(!d.location){ await infoDialog('Le lieu est requis.'); return; }
+  if(!d.interventionType){ await infoDialog("Le type d'intervention est requis."); return; }
+  const payload = {
+    location: d.location, dateTime: d.dateTime, interventionType: d.interventionType, status: d.status,
+    bodyHtml: d.bodyHtml, dispatcherBadge: d.dispatcherBadge, supervisorBadge: d.supervisorBadge, orgIds: d.orgIds,
+    evidencePhotos: d.evidencePhotos
+  };
+  let caseNumber = d.caseNumber || nextCaseNumber();
+  if(d.id){
+    const existing = DB.reports.find(r => r.id === d.id);
+    Object.assign(existing, payload);
+  } else {
+    DB.reports.push({ id: uid('rep'), caseNumber, ...payload, date: nowISO(), author: SESSION.callsign });
+  }
+  const saved = await saveKey('reports');
+  if(!saved){
+    await infoDialog("L'enregistrement a échoué (erreur de stockage). Réessaie dans un instant — tes données restent dans le formulaire.");
+    return;
+  }
+  await logAction(d.id ? 'Modification rapport' : 'Création rapport', `${caseNumber} — ${d.interventionType} — ${d.location}`);
+  reportFormDraft = null;
+  goPage('reports');
+}
+function openReportView(id){
+  const r = DB.reports.find(x => x.id === id);
+  if(!r) return;
+  const dispatcher = DB.officers.find(o => o.badge === r.dispatcherBadge);
+  const supervisor = DB.officers.find(o => o.badge === r.supervisorBadge);
+  const groups = (r.orgIds||[]).map(gid => DB.organizations.find(o=>o.id===gid)).filter(Boolean);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:720px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(r.caseNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="tag tag-blue">${escapeHtml(r.interventionType || '—')}</span>
+          ${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : '<span class="tag tag-green">Clos</span>'}
+        </div>
+
+        <div class="af-label">Lieu</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(r.location)||'—'}</div>
+
+        <div class="af-label">Date et heure</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${r.dateTime ? new Date(r.dateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
+
+        <div class="af-label">Dispatcher en charge</div>
+        <div style="margin-bottom:10px;">${dispatcher ? `[${escapeHtml(dispatcher.badge)}] ${escapeHtml(dispatcher.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        <div class="af-label">Supervisor en charge</div>
+        <div style="margin-bottom:10px;">${supervisor ? `[${escapeHtml(supervisor.badge)}] ${escapeHtml(supervisor.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        <div class="af-label">Groupes impliqués</div>
+        <div style="margin-bottom:10px;">${groups.length ? groups.map(g=>escapeHtml(g.name)).join(', ') : '<span class="helper-text">Aucun</span>'}</div>
+
+        ${r.evidencePhotos && r.evidencePhotos.length ? `
+        <div class="af-label">Preuves</div>
+        <div class="evidence-thumbs" style="margin-bottom:10px;">${r.evidencePhotos.map(src=>`<div class="evidence-thumb" style="cursor:zoom-in;"><img src="${src}" onclick="window.open('${src}','_blank')"></div>`).join('')}</div>` : ''}
+
+        <div class="af-label">Rapport</div>
+        <div class="rte-editor" style="min-height:120px;background:var(--panel-2);">${r.bodyHtml || '<span class="helper-text">Aucun rapport rédigé.</span>'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Enregistré par ${escapeHtml(r.author)} le ${fmtDate(r.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn" onclick="closeModal();openPublicLinkModal('${r.caseNumber}','report_incident')">🔗 Lien public</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditReportPage('${r.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
 }
 
 /* ===================== DETECTIVE — RAPPORTS ===================== */
+const DETECTIVE_TYPES = ['Homicide','Disparition','Trafic organisé','Fraude','Cybercriminalité','Filature','Divers'];
 function nextDetectiveCaseNumber(){
   const year = new Date().getFullYear();
   const countThisYear = DB.detectiveReports.filter(r => r.caseNumber && r.caseNumber.includes('-'+year+'-')).length + 1;
@@ -3248,54 +3513,244 @@ function renderDetectiveReports(){
   return `
     <div class="page-head">
       <div><div class="page-title">Rapports — Detective</div><div class="page-sub">DOSSIERS D'ENQUÊTE</div></div>
-      <button class="btn btn-primary" onclick="openDetectiveReportModal()">+ Nouveau rapport</button>
+      <button class="btn btn-primary" onclick="openNewDetectiveReportPage()">+ Nouveau rapport</button>
     </div>
     ${list.length ? `
     <table>
       <thead><tr><th>N° Dossier</th><th>Titre</th><th>Type</th><th>Date</th><th>Statut</th><th></th></tr></thead>
       <tbody>
         ${list.map(r => `
-          <tr>
+          <tr style="cursor:pointer;" onclick="openDetectiveReportView('${r.id}')">
             <td class="mono row-name">${escapeHtml(r.caseNumber)}</td>
             <td>${escapeHtml(r.title)}</td>
             <td><span class="tag tag-blue">${escapeHtml(r.type)}</span></td>
-            <td class="mono">${new Date(r.date).toLocaleDateString('fr-FR')}</td>
+            <td class="mono">${new Date(r.dateTime || r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</td>
             <td>${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : (r.status === 'Classé sans suite' ? '<span class="tag tag-grey">Classé sans suite</span>' : '<span class="tag tag-green">Résolu</span>')}</td>
             <td class="row-actions">
-              <button class="icon-btn" onclick="openDetectiveReportModal('${r.id}')">Modifier</button>
-              <button class="icon-btn danger" onclick="deleteEntity('detectiveReports','${r.id}')">Suppr.</button>
+              <button class="icon-btn" onclick="event.stopPropagation();openEditDetectiveReportPage('${r.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('detectiveReports','${r.id}')">Suppr.</button>
             </td>
           </tr>`).join('')}
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">⚑</div>Aucun rapport d'enquête rédigé.</div>`}
   `;
 }
-function openDetectiveReportModal(id){
+let detectiveReportFormDraft = null;
+function openNewDetectiveReportPage(){
   if(!hasDetectiveAccess()){
     infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
     return;
   }
-  const existing = id ? DB.detectiveReports.find(r => r.id === id) : null;
-  showModal({
-    title: existing ? 'Modifier le rapport' : "Nouveau rapport d'enquête",
-    fields: [
-      { key:'title', label:"Titre de l'enquête" },
-      { key:'type', label:'Type', type:'select', options:['Homicide','Disparition','Trafic organisé','Fraude','Cybercriminalité','Filature','Divers'] },
-      { key:'status', label:'Statut', type:'select', options:['Ouvert','Résolu','Classé sans suite'] },
-      { key:'suspects', label:'Suspects / personnes d\u2019intérêt' },
-      { key:'narrative', label:"Éléments de l'enquête", type:'textarea' },
-    ],
-    initial: existing || {},
-    onSubmit: async (data) => {
-      if(!hasDetectiveAccess()) return; // double vérification avant écriture
-      let caseNumber = existing ? existing.caseNumber : nextDetectiveCaseNumber();
-      if(existing) Object.assign(existing, data);
-      else DB.detectiveReports.push({ id: uid('det'), caseNumber, ...data, date: nowISO(), author: SESSION.callsign });
-      await saveKey('detectiveReports');
-      await logAction(existing ? 'Modification rapport Detective' : 'Création rapport Detective', `${caseNumber} — ${data.title}`);
-      render();
-    }
-  });
+  detectiveReportFormDraft = {
+    id: null, caseNumber: null,
+    title: '', location: '', dateTime: toLocalDatetimeValue(new Date()),
+    type: '', status: 'Ouvert', suspects: '', bodyHtml: '',
+    responsibleBadge: SESSION.badge, evidencePhotos: []
+  };
+  currentPage = 'detectiveReportForm';
+  render();
+}
+function openEditDetectiveReportPage(id){
+  if(!hasDetectiveAccess()){
+    infoDialog("Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.");
+    return;
+  }
+  const existing = DB.detectiveReports.find(r => r.id === id);
+  if(!existing) return;
+  detectiveReportFormDraft = {
+    id: existing.id, caseNumber: existing.caseNumber,
+    title: existing.title || '', location: existing.location || '',
+    dateTime: existing.dateTime || toLocalDatetimeValue(existing.date || new Date()),
+    type: existing.type || '', status: existing.status || 'Ouvert',
+    suspects: existing.suspects || '', bodyHtml: existing.bodyHtml || existing.narrative || '',
+    responsibleBadge: existing.responsibleBadge || '',
+    evidencePhotos: existing.evidencePhotos ? existing.evidencePhotos.slice() : []
+  };
+  currentPage = 'detectiveReportForm';
+  render();
+}
+function renderDetectiveReportForm(){
+  if(!hasDetectiveAccess()){
+    return `<div class="empty-state"><div class="em-icon">⚑</div>Accès réservé aux grades Captain et au-dessus, ou aux membres de la Detective Division.</div>`;
+  }
+  if(!detectiveReportFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = detectiveReportFormDraft;
+  const officerOptions = `<option value="">—</option>` + DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.responsibleBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('detectiveReports')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier le rapport' : "Nouveau rapport d'enquête"}</div>${d.caseNumber ? `<div class="page-sub">${escapeHtml(d.caseNumber)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Titre de l'enquête :</label>
+      <input type="text" value="${escapeHtml(d.title)}" placeholder="Ex. Disparition de..." oninput="detectiveReportFormDraft.title=this.value">
+    </div>
+
+    <div class="af-row">
+      <div class="field">
+        <label>Lieu :</label>
+        <input type="text" value="${escapeHtml(d.location)}" placeholder="Ex. Downtown Los Santos" oninput="detectiveReportFormDraft.location=this.value">
+      </div>
+      <div class="field">
+        <label>Date et heure :</label>
+        <input type="datetime-local" value="${escapeHtml(d.dateTime)}" onchange="detectiveReportFormDraft.dateTime=this.value">
+      </div>
+    </div>
+
+    <div class="af-row">
+      <div class="field">
+        <label>Type d'enquête :</label>
+        <select onchange="detectiveReportFormDraft.type=this.value">
+          <option value="">— Sélectionner —</option>
+          ${DETECTIVE_TYPES.map(t => `<option value="${escapeHtml(t)}" ${d.type===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Statut :</label>
+        <select onchange="detectiveReportFormDraft.status=this.value">
+          <option value="Ouvert" ${d.status==='Ouvert'?'selected':''}>Ouvert</option>
+          <option value="Résolu" ${d.status==='Résolu'?'selected':''}>Résolu</option>
+          <option value="Classé sans suite" ${d.status==='Classé sans suite'?'selected':''}>Classé sans suite</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Suspects / personnes d'intérêt :</label>
+      <input type="text" value="${escapeHtml(d.suspects)}" placeholder="Noms, surnoms, éléments d'identification..." oninput="detectiveReportFormDraft.suspects=this.value">
+    </div>
+
+    <label class="af-label">Rapport :</label>
+    <div class="rte-toolbar">
+      <button type="button" onclick="rteExec('bold')" title="Gras"><b>B</b></button>
+      <button type="button" onclick="rteExec('italic')" title="Italique"><i>I</i></button>
+      <button type="button" onclick="rteExec('underline')" title="Souligné"><u>U</u></button>
+      <button type="button" onclick="rteExec('strikeThrough')" title="Barré"><s>S</s></button>
+      <button type="button" onclick="rteExec('formatBlock','H1')" title="Titre 1">H1</button>
+      <button type="button" onclick="rteExec('formatBlock','H2')" title="Titre 2">H2</button>
+      <button type="button" onclick="rteExec('insertUnorderedList')" title="Liste à puces">•≡</button>
+      <button type="button" onclick="rteExec('insertOrderedList')" title="Liste numérotée">1≡</button>
+      <button type="button" onclick="rteExec('insertHorizontalRule')" title="Séparateur">—</button>
+      <button type="button" onclick="rteExec('removeFormat')" title="Effacer la mise en forme">✕</button>
+      <button type="button" onclick="rteExec('undo')" title="Annuler">↺</button>
+      <button type="button" onclick="rteExec('redo')" title="Rétablir">↻</button>
+    </div>
+    <div id="rte-editor" class="rte-editor" style="min-height:280px;" contenteditable="true" oninput="detectiveReportFormDraft.bodyHtml=this.innerHTML" placeholder="Détaille les éléments de l'enquête...">${d.bodyHtml}</div>
+
+    <label class="af-label">Preuves :</label>
+    <div id="detective-evidence-thumbs" class="evidence-thumbs">${renderDetectiveEvidenceThumbsHtml()}</div>
+    <input type="file" id="detective-evidence-file-input" accept="image/*" multiple style="display:none;" onchange="handleDetectiveEvidenceFiles(this.files)">
+    <button class="af-add-photo-btn" onclick="document.getElementById('detective-evidence-file-input').click()">+</button>
+
+    <div class="field" style="margin-top:16px;max-width:420px;">
+      <label>Détective responsable :</label>
+      <select onchange="detectiveReportFormDraft.responsibleBadge=this.value">${officerOptions}</select>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="submitDetectiveReport()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+function renderDetectiveEvidenceThumbsHtml(){
+  if(!detectiveReportFormDraft || !detectiveReportFormDraft.evidencePhotos.length) return '<div class="helper-text">Aucune preuve ajoutée.</div>';
+  return detectiveReportFormDraft.evidencePhotos.map((src,i) => `
+    <div class="evidence-thumb">
+      <img src="${src}">
+      <button onclick="removeDetectiveEvidencePhoto(${i})" title="Retirer">✕</button>
+    </div>`).join('');
+}
+async function handleDetectiveEvidenceFiles(fileList){
+  for(const file of [...fileList]){
+    if(!file.type.startsWith('image/')) continue;
+    const dataUrl = await resizeImageFile(file, 1000, 0.75);
+    detectiveReportFormDraft.evidencePhotos.push(dataUrl);
+  }
+  document.getElementById('detective-evidence-thumbs').innerHTML = renderDetectiveEvidenceThumbsHtml();
+}
+function removeDetectiveEvidencePhoto(index){
+  detectiveReportFormDraft.evidencePhotos.splice(index, 1);
+  document.getElementById('detective-evidence-thumbs').innerHTML = renderDetectiveEvidenceThumbsHtml();
+}
+async function submitDetectiveReport(){
+  if(!hasDetectiveAccess()) return; // double vérification avant écriture
+  const d = detectiveReportFormDraft;
+  if(!d.title){ await infoDialog("Le titre de l'enquête est requis."); return; }
+  if(!d.type){ await infoDialog("Le type d'enquête est requis."); return; }
+  const payload = {
+    title: d.title, location: d.location, dateTime: d.dateTime, type: d.type, status: d.status,
+    suspects: d.suspects, bodyHtml: d.bodyHtml, responsibleBadge: d.responsibleBadge, evidencePhotos: d.evidencePhotos
+  };
+  let caseNumber = d.caseNumber || nextDetectiveCaseNumber();
+  if(d.id){
+    const existing = DB.detectiveReports.find(r => r.id === d.id);
+    Object.assign(existing, payload);
+  } else {
+    DB.detectiveReports.push({ id: uid('det'), caseNumber, ...payload, date: nowISO(), author: SESSION.callsign });
+  }
+  const saved = await saveKey('detectiveReports');
+  if(!saved){
+    await infoDialog("L'enregistrement a échoué (erreur de stockage). Réessaie dans un instant — tes données restent dans le formulaire.");
+    return;
+  }
+  await logAction(d.id ? 'Modification rapport Detective' : 'Création rapport Detective', `${caseNumber} — ${d.title}`);
+  detectiveReportFormDraft = null;
+  goPage('detectiveReports');
+}
+function openDetectiveReportView(id){
+  if(!hasDetectiveAccess()) return;
+  const r = DB.detectiveReports.find(x => x.id === id);
+  if(!r) return;
+  const responsible = DB.officers.find(o => o.badge === r.responsibleBadge);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:720px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(r.caseNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="tag tag-blue">${escapeHtml(r.type || '—')}</span>
+          ${r.status === 'Ouvert' ? '<span class="tag tag-amber">Ouvert</span>' : (r.status === 'Classé sans suite' ? '<span class="tag tag-grey">Classé sans suite</span>' : '<span class="tag tag-green">Résolu</span>')}
+        </div>
+
+        <div class="af-label">Titre de l'enquête</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(r.title)||'—'}</div>
+
+        <div class="af-label">Lieu</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(r.location)||'—'}</div>
+
+        <div class="af-label">Date et heure</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${r.dateTime ? new Date(r.dateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
+
+        <div class="af-label">Suspects / personnes d'intérêt</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(r.suspects)||'—'}</div>
+
+        <div class="af-label">Détective responsable</div>
+        <div style="margin-bottom:10px;">${responsible ? `[${escapeHtml(responsible.badge)}] ${escapeHtml(responsible.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        ${r.evidencePhotos && r.evidencePhotos.length ? `
+        <div class="af-label">Preuves</div>
+        <div class="evidence-thumbs" style="margin-bottom:10px;">${r.evidencePhotos.map(src=>`<div class="evidence-thumb" style="cursor:zoom-in;"><img src="${src}" onclick="window.open('${src}','_blank')"></div>`).join('')}</div>` : ''}
+
+        <div class="af-label">Rapport</div>
+        <div class="rte-editor" style="min-height:120px;background:var(--panel-2);">${r.bodyHtml || '<span class="helper-text">Aucun rapport rédigé.</span>'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Enregistré par ${escapeHtml(r.author)} le ${fmtDate(r.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn" onclick="closeModal();openPublicLinkModal('${r.caseNumber}','report_detective')">🔗 Lien public</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditDetectiveReportPage('${r.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
 }
 
 /* ===================== WARRANTS ===================== */
@@ -3581,9 +4036,18 @@ function buildPublicReportUrl(bookingNumber){
 function buildPublicComplaintUrl(complaintNumber){
   return location.origin + location.pathname + '?public_complaint=' + encodeURIComponent(complaintNumber);
 }
+function buildPublicIncidentReportUrl(caseNumber){
+  return location.origin + location.pathname + '?public_incident=' + encodeURIComponent(caseNumber);
+}
+function buildPublicDetectiveReportUrl(caseNumber){
+  return location.origin + location.pathname + '?public_detective=' + encodeURIComponent(caseNumber);
+}
 function openPublicLinkModal(number, kind){
-  // kind : 'report' (par défaut, rétrocompatible) ou 'complaint'
-  const url = kind === 'complaint' ? buildPublicComplaintUrl(number) : buildPublicReportUrl(number);
+  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident' ou 'report_detective'
+  const url = kind === 'complaint' ? buildPublicComplaintUrl(number)
+    : kind === 'report_incident' ? buildPublicIncidentReportUrl(number)
+    : kind === 'report_detective' ? buildPublicDetectiveReportUrl(number)
+    : buildPublicReportUrl(number);
   const label = kind === 'complaint' ? 'Lien public de la plainte' : 'Lien public du rapport';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
@@ -3796,6 +4260,141 @@ function renderPublicComplaint(idOrNumber){
     </div>
   `;
 }
+function renderPublicIncidentReport(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const r = DB.reports.find(x => x.caseNumber === idOrNumber || x.id === idOrNumber);
+  if(!r){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Rapport introuvable</h2>
+      <p>Ce lien ne correspond à aucun rapport enregistré, ou le rapport a été supprimé.</p>
+    </div>`;
+    return;
+  }
+
+  const dispatcher = DB.officers.find(o => o.badge === r.dispatcherBadge);
+  const supervisor = DB.officers.find(o => o.badge === r.supervisorBadge);
+  const groups = (r.orgIds||[]).map(gid => DB.organizations.find(o=>o.id===gid)).filter(Boolean);
+  const d = new Date(r.date);
+  const dateStr = d.toLocaleDateString('fr-FR');
+  const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+  root.innerHTML = `
+    <div class="pubdoc">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${pubdocBadgeSvg()}</div>
+        <div>
+          <h1 class="pubdoc-title">Rapport${r.interventionType ? ' : '+escapeHtml(r.interventionType) : ''}</h1>
+          <div class="pubdoc-subtitle">Document émis par le Département de Police de San Andreas</div>
+          <div class="pubdoc-ref">Référence : ${escapeHtml(r.caseNumber)} · ${escapeHtml(r.id)}</div>
+        </div>
+      </div>
+
+      <div class="pubdoc-line">Rédigé le ${dateStr} à ${timeStr}${r.dateTime ? ' — faits survenus le '+new Date(r.dateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : ''}</div>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Lieu</th><th>Type d'intervention</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(r.location)||'—'}</td>
+            <td>${escapeHtml(r.interventionType)||'—'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Dispatcher en charge</th><th>Supervisor en charge</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${dispatcher ? `Matricule ${escapeHtml(dispatcher.badge)}` : 'Non renseigné'}</td>
+            <td>${supervisor ? `Matricule ${escapeHtml(supervisor.badge)}` : 'Non renseigné'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      ${groups.length ? `
+      <div class="pubdoc-section-title">Groupes impliqués</div>
+      <div class="pubdoc-line" style="margin-bottom:6px;">${groups.map(g=>escapeHtml(g.name)).join(', ')}</div>` : ''}
+
+      <div class="pubdoc-tag ${r.status==='Clos'?'pubdoc-tag-ok':'pubdoc-tag-warn'}" style="margin:6px 0 16px;">Statut : ${escapeHtml(r.status||'Ouvert')}</div>
+
+      ${r.evidencePhotos && r.evidencePhotos.length ? `
+      <div class="pubdoc-section-title">Preuves</div>
+      <div class="pubdoc-evidence">${r.evidencePhotos.map(src => `<img src="${src}">`).join('')}</div>` : ''}
+
+      <div class="pubdoc-section-title">Corps du rapport</div>
+      <div class="pubdoc-body-box">${r.bodyHtml || '<span style="color:#9aa3b0;">Aucun rapport rédigé.</span>'}</div>
+
+      <div class="pubdoc-sign">${dispatcher ? 'Matricule ' + escapeHtml(dispatcher.badge) : ''}</div>
+      <div class="pubdoc-footer">Département de Police de San Andreas</div>
+    </div>
+  `;
+}
+function renderPublicDetectiveReport(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const r = DB.detectiveReports.find(x => x.caseNumber === idOrNumber || x.id === idOrNumber);
+  if(!r){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Rapport introuvable</h2>
+      <p>Ce lien ne correspond à aucun rapport d'enquête enregistré, ou le rapport a été supprimé.</p>
+    </div>`;
+    return;
+  }
+
+  const responsible = DB.officers.find(o => o.badge === r.responsibleBadge);
+  const d = new Date(r.date);
+  const dateStr = d.toLocaleDateString('fr-FR');
+  const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+  root.innerHTML = `
+    <div class="pubdoc">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${pubdocBadgeSvg()}</div>
+        <div>
+          <h1 class="pubdoc-title">Rapport d'enquête${r.title ? ' : '+escapeHtml(r.title) : ''}</h1>
+          <div class="pubdoc-subtitle">Document émis par la Detective Division — San Andreas</div>
+          <div class="pubdoc-ref">Référence : ${escapeHtml(r.caseNumber)} · ${escapeHtml(r.id)}</div>
+        </div>
+      </div>
+
+      <div class="pubdoc-line">Rédigé le ${dateStr} à ${timeStr}${r.dateTime ? ' — faits survenus le '+new Date(r.dateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : ''}</div>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Lieu</th><th>Type d'enquête</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(r.location)||'—'}</td>
+            <td>${escapeHtml(r.type)||'—'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      ${r.suspects ? `
+      <div class="pubdoc-section-title">Suspects / personnes d'intérêt</div>
+      <div class="pubdoc-line" style="margin-bottom:6px;">${escapeHtml(r.suspects)}</div>` : ''}
+
+      <div class="pubdoc-section-title">Détective responsable</div>
+      <div class="pubdoc-line" style="margin-bottom:6px;">${responsible ? 'Matricule '+escapeHtml(responsible.badge) : 'Non renseigné'}</div>
+
+      <div class="pubdoc-tag ${r.status==='Résolu'?'pubdoc-tag-ok':'pubdoc-tag-warn'}" style="margin:6px 0 16px;">Statut : ${escapeHtml(r.status||'Ouvert')}</div>
+
+      ${r.evidencePhotos && r.evidencePhotos.length ? `
+      <div class="pubdoc-section-title">Preuves</div>
+      <div class="pubdoc-evidence">${r.evidencePhotos.map(src => `<img src="${src}">`).join('')}</div>` : ''}
+
+      <div class="pubdoc-section-title">Corps du rapport</div>
+      <div class="pubdoc-body-box">${r.bodyHtml || '<span style="color:#9aa3b0;">Aucun rapport rédigé.</span>'}</div>
+
+      <div class="pubdoc-sign">${responsible ? 'Matricule ' + escapeHtml(responsible.badge) : ''}</div>
+      <div class="pubdoc-footer">Département de Police de San Andreas</div>
+    </div>
+  `;
+}
 
 
 async function init(){
@@ -3810,6 +4409,18 @@ async function init(){
     await loadAll();
     renderPublicComplaint(publicComplaintId);
     return; // pas de connexion nécessaire pour consulter une plainte publique
+  }
+  const publicIncidentId = new URLSearchParams(location.search).get('public_incident');
+  if(publicIncidentId){
+    await loadAll();
+    renderPublicIncidentReport(publicIncidentId);
+    return; // pas de connexion nécessaire pour consulter un rapport public
+  }
+  const publicDetectiveId = new URLSearchParams(location.search).get('public_detective');
+  if(publicDetectiveId){
+    await loadAll();
+    renderPublicDetectiveReport(publicDetectiveId);
+    return; // pas de connexion nécessaire pour consulter un rapport d'enquête public
   }
   await loadAll();
   const sess = await loadSession();

@@ -413,7 +413,7 @@
   .orgchart-div-card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px 14px;}
   .orgchart-div-card .odc-title{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
   .odc-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:none;font-size:13px;}
-  .odc-icon img{width:100%;height:100%;object-fit:cover;border-radius:3px;}
+  .odc-icon img{width:100%;height:100%;object-fit:contain;border-radius:3px;}
   .orgchart-div-card .odc-officer{font-size:12.5px;color:var(--text-dim);padding:3px 0;border-top:1px solid var(--border-soft);}
   .orgchart-div-card .odc-officer:first-of-type{border-top:none;}
   .orgchart-div-card .odc-empty{font-size:12px;color:var(--text-faint);font-style:italic;}
@@ -1356,16 +1356,17 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
     const val = initial[f.key] !== undefined ? initial[f.key] : '';
     if(f.type === 'image-upload'){
       const helper = f.helper ? `<div class="helper-text">${escapeHtml(f.helper)}</div>` : '';
+      const cropArg = f.crop === false ? 'false' : 'true';
       return `<div class="field">
         <label>${f.label}</label>
         <div class="image-drop" id="mf-${f.key}-drop"
           onclick="document.getElementById('mf-${f.key}-file').click()"
           ondragover="event.preventDefault();this.classList.add('drag-over');"
           ondragleave="this.classList.remove('drag-over');"
-          ondrop="event.preventDefault();this.classList.remove('drag-over');handleImageUploadField(event.dataTransfer.files[0],'${f.key}');">
-          <div id="mf-${f.key}-preview">${val ? `<img src="${val}">` : '<span>Cliquez ou déposez votre image ici</span>'}</div>
+          ondrop="event.preventDefault();this.classList.remove('drag-over');handleImageUploadField(event.dataTransfer.files[0],'${f.key}',${cropArg});">
+          <div id="mf-${f.key}-preview">${val ? `<img src="${val}"${f.crop===false?' style="object-fit:contain;"':''}>` : '<span>Cliquez ou déposez votre image ici</span>'}</div>
         </div>
-        <input type="file" id="mf-${f.key}-file" accept="image/*" style="display:none;" onchange="handleImageUploadField(this.files[0],'${f.key}')">
+        <input type="file" id="mf-${f.key}-file" accept="image/*" style="display:none;" onchange="handleImageUploadField(this.files[0],'${f.key}',${cropArg})">
         <input type="hidden" id="mf-${f.key}" value="${escapeHtml(val)}">
         ${helper}
       </div>`;
@@ -1457,19 +1458,28 @@ function closeModal(){
   if(m) m.remove();
 }
 
-/* Champ d'import d'image (type 'image-upload' de showModal) — recadre toujours en carré parfait,
-   quelle que soit la proportion de la photo importée. */
-async function handleImageUploadField(file, key){
+/* Champ d'import d'image (type 'image-upload' de showModal). Par défaut, recadre en carré parfait
+   quelle que soit la proportion de la photo importée ; passer crop=false conserve l'image telle
+   quelle (proportions et transparence d'origine intactes), utile pour des logos/insignes non carrés. */
+async function handleImageUploadField(file, key, crop){
   if(!file || !file.type || !file.type.startsWith('image/')) return;
   const preview = document.getElementById('mf-'+key+'-preview');
   if(preview) preview.innerHTML = '<span>Traitement...</span>';
   try{
-    const dataUrl = await resizeImageToSquare(file, 400, 0.85);
+    const dataUrl = crop === false ? await fileToDataUrl(file) : await resizeImageToSquare(file, 400, 0.85);
     document.getElementById('mf-'+key).value = dataUrl;
-    if(preview) preview.innerHTML = `<img src="${dataUrl}">`;
+    if(preview) preview.innerHTML = `<img src="${dataUrl}"${crop === false ? ' style="object-fit:contain;"' : ''}>`;
   }catch(e){
     if(preview) preview.innerHTML = '<span>Échec du traitement de l\u2019image.</span>';
   }
+}
+function fileToDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /* Champ de recherche de citoyen (utilisé par le type de champ 'citizen-search' de showModal) —
@@ -5167,7 +5177,7 @@ function renderSettingsGradesTab(){
     const isTop = dispIdx === 0;
     const isBottom = dispIdx === displayRanks.length - 1;
     const logoUrl = DB.settings.rankLogos && DB.settings.rankLogos[rank];
-    const logoPreview = logoUrl ? `<img src="${escapeHtml(logoUrl)}">` : '—';
+    const logoPreview = logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="object-fit:contain;">` : '—';
     return `
       <tr>
         <td class="mono" style="color:var(--text-faint);">${dispIdx+1}</td>
@@ -5569,7 +5579,7 @@ function openRankLogoModal(rank){
   if(!RANK_ORDER.includes(rank)) return;
   showModal({
     title: 'Logo — ' + rank,
-    fields: [{ key:'logo', label:'Image', type:'image-upload', helper:"Insigne affiché pour ce grade (ex. sur l'Organigramme). L'image est automatiquement recadrée au format carré." }],
+    fields: [{ key:'logo', label:'Image', type:'image-upload', crop:false, helper:"Insigne affiché pour ce grade (ex. sur l'Organigramme). L'image est utilisée telle quelle, sans recadrage." }],
     initial: { logo: (DB.settings.rankLogos && DB.settings.rankLogos[rank]) || '' },
     submitLabel: 'Enregistrer',
     onSubmit: async (data) => {

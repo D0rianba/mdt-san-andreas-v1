@@ -674,6 +674,9 @@ const DEFAULT_RANKS = [
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
 const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain' };
+// Collections où le champ "author" est le matricule seul (ex-diminutif de grade retiré par migration) —
+// partagé entre la migration au chargement et le renommage de matricule (changeOfficerBadge).
+const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
 // RANK_ORDER référence toujours DB.ranks (même tableau) : le muter (push/splice/tri) suffit à
 // tenir à jour la hiérarchie partout dans l'app, il suffit ensuite de persister via saveKey('ranks').
 let RANK_ORDER = [...DEFAULT_RANKS];
@@ -835,7 +838,6 @@ async function loadAll(){
 
   // migration : les auteurs étaient auparavant enregistrés avec un diminutif de grade
   // devant le matricule (ex. "C-111") — on ne garde plus que le matricule seul.
-  const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
   for(const key of AUTHOR_COLLECTIONS){
     let changed = false;
     (DB[key] || []).forEach(item => {
@@ -4576,13 +4578,15 @@ function openPenalCodeModal(id){
 function renderRoster(){
   const list = [...DB.officers].sort((a,b) => new Date(b.lastSeen)-new Date(a.lastSeen));
   const canEditDivision = hasRankAtLeast(DB.settings.captainTierMinRank);
+  const canEditBadge = isAdmin();
+  const showActionsCol = canEditDivision || canEditBadge;
   return `
     <div class="page-head">
       <div><div class="page-title">Effectifs</div><div class="page-sub">AGENTS ENREGISTRÉS SUR LE TERMINAL</div></div>
     </div>
     ${list.length ? `
     <table>
-      <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Divisions</th><th>Dernière connexion</th>${canEditDivision ? '<th></th>' : ''}</tr></thead>
+      <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Divisions</th><th>Dernière connexion</th>${showActionsCol ? '<th></th>' : ''}</tr></thead>
       <tbody>
         ${list.map(o => `
           <tr>
@@ -4591,9 +4595,10 @@ function renderRoster(){
             <td><span class="tag tag-blue">${escapeHtml(o.rank)}</span></td>
             <td>${(o.divisions&&o.divisions.length) ? o.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="tag tag-grey">Non affecté</span>'}</td>
             <td class="mono">${fmtDate(o.lastSeen)}</td>
-            ${canEditDivision ? `
+            ${showActionsCol ? `
             <td class="row-actions">
-              <button class="icon-btn" onclick="openDivisionModal('${o.badge}')">Modifier</button>
+              ${canEditDivision ? `<button class="icon-btn" onclick="openDivisionModal('${o.badge}')">Divisions</button>` : ''}
+              ${canEditBadge ? `<button class="icon-btn" onclick="openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
       </tbody>
@@ -4675,6 +4680,96 @@ function openDivisionModal(badge){
       render();
     }
   });
+}
+
+function openChangeBadgeModal(oldBadge){
+  if(!isAdmin()) return;
+  const officer = DB.officers.find(o => o.badge === oldBadge);
+  if(!officer) return;
+  showModal({
+    title: 'Modifier le matricule — ' + officer.name,
+    fields: [{ key:'badge', label:'Nouveau matricule', placeholder:'Ex. 1042' }],
+    initial: { badge: oldBadge },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      await changeOfficerBadge(oldBadge, (data.badge||'').trim());
+    }
+  });
+}
+// Renomme un matricule et répercute le changement partout où il est référencé : la fiche
+// Effectifs elle-même, toutes les assignations en cours (rédacteur, dispatcheur/superviseur,
+// agents assignés...), l'historique "créé par" de chaque module, la session en cours si c'est
+// l'agent connecté qui est renommé, et le compte Supabase (mode déployé) puisque le matricule
+// y sert d'identifiant de connexion.
+async function changeOfficerBadge(oldBadge, newBadge){
+  if(!isAdmin()) return;
+  if(!newBadge){ await infoDialog('Le matricule est requis.'); return; }
+  if(newBadge === oldBadge) return;
+  if(DB.officers.some(o => o.badge === newBadge)){
+    await infoDialog('Ce matricule est déjà utilisé par un autre agent.');
+    return;
+  }
+
+  // Synchronise d'abord le compte Supabase (mode déployé) : si ça échoue, on n'applique rien
+  // en local pour éviter que le matricule local et celui du compte divergent.
+  if(_supabaseConfigured){
+    try{
+      const adminPassword = await requireSessionPassword();
+      const { error } = await _sb.rpc('mdt_admin_update_matricule', {
+        p_admin_matricule: SESSION.badge, p_admin_password: adminPassword,
+        p_old_matricule: oldBadge, p_new_matricule: newBadge
+      });
+      if(error) throw error;
+    }catch(e){
+      await infoDialog(describeAuthError(e));
+      return;
+    }
+  }
+
+  const officer = DB.officers.find(o => o.badge === oldBadge);
+  if(officer) officer.badge = newBadge;
+
+  // Relations structurelles (assignations en cours) référençant le matricule
+  const singleBadgeFields = [
+    ['arrestReports','responsibleBadge'], ['detectiveReports','responsibleBadge'],
+    ['complaints','takenByBadge'], ['convocations','authorBadge'],
+    ['reports','dispatcherBadge'], ['reports','supervisorBadge'],
+  ];
+  singleBadgeFields.forEach(([col, field]) => {
+    (DB[col]||[]).forEach(item => { if(item[field] === oldBadge) item[field] = newBadge; });
+  });
+  const arrayBadgeFields = [
+    ['arrestReports','agentBadges'], ['complaints','assignedAgentBadges'],
+  ];
+  arrayBadgeFields.forEach(([col, field]) => {
+    (DB[col]||[]).forEach(item => {
+      if(Array.isArray(item[field])) item[field] = item[field].map(b => b === oldBadge ? newBadge : b);
+    });
+  });
+  if(DB.dispatchAssignments){
+    if(DB.dispatchAssignments.dispatcherBadge === oldBadge) DB.dispatchAssignments.dispatcherBadge = newBadge;
+    if(DB.dispatchAssignments.supervisorBadge === oldBadge) DB.dispatchAssignments.supervisorBadge = newBadge;
+  }
+
+  // Historique "créé/rédigé par" (le matricule seul) sur tous les modules concernés
+  AUTHOR_COLLECTIONS.forEach(col => {
+    (DB[col]||[]).forEach(item => { if(item && item.author === oldBadge) item.author = newBadge; });
+  });
+
+  // Session en cours, si l'agent renommé est l'utilisateur connecté
+  if(SESSION && SESSION.badge === oldBadge){
+    SESSION.badge = newBadge;
+    SESSION.callsign = newBadge;
+    await saveSession(SESSION);
+    const tbCallsign = document.getElementById('tb-callsign');
+    if(tbCallsign) tbCallsign.textContent = SESSION.badge;
+  }
+
+  const toSave = new Set(['officers','arrestReports','detectiveReports','complaints','convocations','reports','dispatchAssignments', ...AUTHOR_COLLECTIONS]);
+  for(const col of toSave) await saveKey(col);
+
+  await logAction('Modification matricule', `"${oldBadge}" renommé en "${newBadge}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
+  render();
 }
 
 /* ===================== LOGS ===================== */

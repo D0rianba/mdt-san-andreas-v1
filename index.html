@@ -386,6 +386,7 @@
   .pubdoc-tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:3px;margin-right:6px;}
   .pubdoc-tag-ok{background:#e3f8ee;color:#1a9f5c;}
   .pubdoc-tag-warn{background:#fdeeea;color:#d64545;}
+  .pubdoc-tag-neutral{background:#eef0f3;color:#5a6472;}
   .pubdoc-sign{text-align:right;margin-top:34px;font-family:'Georgia',serif;font-style:italic;font-size:19px;color:#2c323d;}
   .pubdoc-footer{text-align:center;color:#9aa3b0;font-size:11.5px;margin-top:30px;}
   .pubdoc-evidence{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;}
@@ -546,6 +547,7 @@
         <div class="nav-item" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> Saisies <span class="nav-count" id="count-seizures">0</span></div>
         <div class="nav-item" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> PPA <span class="nav-count" id="count-ppa">0</span></div>
         <div class="nav-item" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> Plainte <span class="nav-count" id="count-complaints">0</span></div>
+        <div class="nav-item" data-page="convocations" onclick="goPage('convocations')"><span class="nav-icon">📨</span> Convocation <span class="nav-count" id="count-convocations">0</span></div>
         <div class="nav-section-label" id="nav-section-roster">Service</div>
         <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">★</span> Effectifs <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
@@ -664,7 +666,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{} };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{} };
 let SESSION = null;
 const DEFAULT_RANKS = [
   'Rookie','Police Officer I','Police Officer II','Police Officer III','Senior Lead Officer',
@@ -701,7 +703,7 @@ const K = {
   warrants:'db:warrants', officers:'db:officers', bolos:'db:bolos', penalCode:'db:penalCode',
   detectiveReports:'db:detectiveReports', logs:'db:logs', events:'db:events', dispatch:'db:dispatch',
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
-  organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints',
+  organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
   ranks:'db:ranks', settings:'db:settings',
   session:'session:current'
@@ -732,7 +734,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -844,6 +846,9 @@ async function loadAll(){
     });
     if(changed) await saveKey(key);
   }
+
+  // convocations : synchronise "Envoyée" ↔ "En retard" avec la date d'échéance à chaque démarrage
+  await refreshConvocationStatuses();
 }
 async function saveKey(key){
   try{
@@ -1150,6 +1155,7 @@ function updateCounts(){
   document.getElementById('count-seizures').textContent = DB.seizures.length;
   document.getElementById('count-ppa').textContent = DB.ppas.filter(p => p.status === 'Actif').length;
   document.getElementById('count-complaints').textContent = DB.complaints.filter(c => c.status === 'Ouverte').length;
+  document.getElementById('count-convocations').textContent = DB.convocations.filter(c => c.status === 'Envoyée' || c.status === 'En retard').length;
   document.getElementById('count-reports').textContent = DB.reports.length;
   document.getElementById('count-warrants').textContent = DB.warrants.length;
   document.getElementById('count-roster').textContent = DB.officers.length;
@@ -1445,6 +1451,9 @@ function syncCitizenComboToPageDraft(hiddenId, value){
   if(hiddenId === 'mf-depositorId' && typeof complaintFormDraft !== 'undefined' && complaintFormDraft){
     complaintFormDraft.depositorId = value;
   }
+  if(hiddenId === 'mf-citizenId' && typeof convocationFormDraft !== 'undefined' && convocationFormDraft){
+    convocationFormDraft.citizenId = value;
+  }
 }
 function hideCitizenComboLater(inputEl){
   const hiddenId = inputEl.id.replace('-display','');
@@ -1520,6 +1529,8 @@ function render(){
   else if(currentPage === 'ppa') c.innerHTML = renderPPAs();
   else if(currentPage === 'complaints') c.innerHTML = renderComplaints();
   else if(currentPage === 'complaintForm') c.innerHTML = renderComplaintForm();
+  else if(currentPage === 'convocations') c.innerHTML = renderConvocations();
+  else if(currentPage === 'convocationForm') c.innerHTML = renderConvocationForm();
   else if(currentPage === 'reports') c.innerHTML = renderReports();
   else if(currentPage === 'reportForm') c.innerHTML = renderReportForm();
   else if(currentPage === 'detectiveReportForm') c.innerHTML = renderDetectiveReportForm();
@@ -2242,6 +2253,9 @@ function renderCitizenDetail(){
   const complaints = DB.complaints
     .filter(cp => Array.isArray(cp.suspectIds) && cp.suspectIds.includes(c.id))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
+  const convocations = DB.convocations
+    .filter(cv => cv.citizenId === c.id)
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
 
   return `
     <div class="page-head">
@@ -2312,6 +2326,18 @@ function renderCitizenDetail(){
           <div class="activity-time">${new Date(a.date).toLocaleDateString('fr-FR')}</div>
           <div class="activity-text"><b class="mono">${escapeHtml(a.bookingNumber)}</b> ${arrestValidationTag(a.status)} <span style="color:var(--text-faint);">↗ voir le rapport public</span></div>
         </div>`).join('') : `<div class="helper-text" style="padding:14px 16px;">Aucun.</div>`}
+    </div>
+
+    <div class="panel-block-head" style="border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Convocations</span>
+      <button class="btn btn-sm" onclick="openNewConvocationPage('${c.id}')">+ Créer une convocation</button>
+    </div>
+    <div class="panel-block" style="border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:4px 0;margin-bottom:30px;">
+      ${convocations.length ? convocations.map(cv => `
+        <div class="activity-row" style="cursor:pointer;" onclick="window.open(buildPublicConvocationUrl('${cv.convocationNumber}'), '_blank')" title="Voir la convocation publique">
+          <div class="activity-time">${new Date(cv.date).toLocaleDateString('fr-FR')}</div>
+          <div class="activity-text"><b class="mono">${escapeHtml(cv.convocationNumber)}</b> ${escapeHtml((cv.reason||'').split('\n')[0])||''} ${convocationStatusTag(cv.status)} <span style="color:var(--text-faint);">↗ voir la convocation publique</span></div>
+        </div>`).join('') : `<div class="helper-text" style="padding:14px 16px;">Aucune.</div>`}
     </div>
   `;
 }
@@ -2960,7 +2986,6 @@ function renderArrestReportForm(){
         </div>` : ''}
 
         <div class="af-row" style="margin-top:6px;">
-          <button class="btn" onclick="openArrestConvocationPlaceholder()">Ajouter une convocation</button>
           <button class="btn" onclick="openSeizureModal(null, onSeizureLinkedToArrest)">Ajouter une saisie</button>
         </div>
 
@@ -3126,9 +3151,6 @@ function resizeImageToSquare(file, size, quality){
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-function openArrestConvocationPlaceholder(){
-  infoDialog("La gestion des convocations sera ajoutée dans une prochaine étape.");
 }
 async function onSeizureLinkedToArrest(seizure){
   if(!arrestFormDraft) return;
@@ -3537,6 +3559,244 @@ async function submitComplaint(){
   await logAction(d.id ? 'Modification plainte' : 'Création plainte', complaintNumber);
   complaintFormDraft = null;
   goPage('complaints');
+}
+
+/* ===================== DOSSIER — CONVOCATIONS ===================== */
+const CONVOCATION_STATUSES = ['Envoyée','En retard',"S'est présenté",'Annulée'];
+function convocationStatusTag(s){
+  if(s === "S'est présenté") return `<span class="tag tag-green">S'est présenté</span>`;
+  if(s === 'En retard') return '<span class="tag tag-red">En retard</span>';
+  if(s === 'Annulée') return '<span class="tag tag-grey">Annulée</span>';
+  return '<span class="tag tag-blue">Envoyée</span>';
+}
+function nextConvocationNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.convocations.filter(c => c.convocationNumber && c.convocationNumber.includes('-'+year+'-')).length + 1;
+  return `CONV-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function addDays(isoDate, days){
+  const d = new Date(isoDate);
+  d.setDate(d.getDate() + (parseInt(days,10) || 0));
+  return d.toISOString();
+}
+// Maintient automatiquement la cohérence entre le statut et l'échéance : bascule "Envoyée" vers
+// "En retard" (et inversement, si le délai est rallongé après coup) selon la date du jour. Les
+// statuts "S'est présenté" et "Annulée" sont définitifs et ne sont jamais modifiés automatiquement.
+async function refreshConvocationStatuses(){
+  const now = Date.now();
+  let changed = false;
+  (DB.convocations||[]).forEach(c => {
+    if(!c.dueDate) return;
+    const overdue = new Date(c.dueDate).getTime() < now;
+    if(c.status === 'Envoyée' && overdue){ c.status = 'En retard'; changed = true; }
+    else if(c.status === 'En retard' && !overdue){ c.status = 'Envoyée'; changed = true; }
+  });
+  if(changed){
+    await saveKey('convocations');
+    if(currentPage === 'convocations') render();
+  }
+  return changed;
+}
+setInterval(refreshConvocationStatuses, 60000); // vérifie les échéances dépassées toutes les minutes
+
+function citizenLabelForConvocation(c){
+  const cit = DB.citizens.find(x => x.id === c.citizenId);
+  return cit ? citizenIdentifierLabel(cit) : 'Citoyen inconnu';
+}
+
+let convocationSearch = '';
+function renderConvocations(){
+  const list = DB.convocations
+    .filter(c => (citizenLabelForConvocation(c)+' '+c.convocationNumber+' '+(c.reason||'')).toLowerCase().includes(convocationSearch.toLowerCase()))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Convocation</div><div class="page-sub">CONVOCATIONS ÉMISES</div></div>
+      <button class="btn btn-primary" onclick="openNewConvocationPage()">+ Nouvelle convocation</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input id="convocation-search-box" placeholder="Rechercher une personne, une raison, un n° de convocation..." value="${escapeHtml(convocationSearch)}" oninput="convocationSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N°</th><th>Personne convoquée</th><th>Raison</th><th>Échéance</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(c => `
+          <tr style="cursor:pointer;" onclick="openConvocationView('${c.id}')">
+            <td class="mono row-name">${escapeHtml(c.convocationNumber)}</td>
+            <td>${escapeHtml(citizenLabelForConvocation(c))}</td>
+            <td>${escapeHtml((c.reason||'').split('\n')[0]) || '—'}</td>
+            <td class="mono">${c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—'}</td>
+            <td>${convocationStatusTag(c.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="event.stopPropagation();openEditConvocationPage('${c.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('convocations','${c.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">📨</div>Aucune convocation enregistrée.</div>`}
+  `;
+}
+function openConvocationView(id){
+  const c = DB.convocations.find(x => x.id === id);
+  if(!c) return;
+  const citizen = DB.citizens.find(x => x.id === c.citizenId);
+  const author = DB.officers.find(o => o.badge === c.authorBadge);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:620px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(c.convocationNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;">${convocationStatusTag(c.status)}</div>
+
+        <div class="af-label">Personne convoquée</div>
+        <div style="margin-bottom:10px;">${citizen ? `<a href="#" onclick="closeModal();openCitizenDetail('${citizen.id}')" style="color:var(--blue);text-decoration:none;">${escapeHtml(citizenIdentifierLabel(citizen))}</a>` : '<span class="helper-text">Non renseignée</span>'}</div>
+
+        <div class="af-label">Raisons de la convocation</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);white-space:pre-line;">${escapeHtml(c.reason)||'—'}</div>
+
+        <div class="af-label">Doit se présenter avant le</div>
+        <div style="margin-bottom:10px;" class="mono">${c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—'}</div>
+
+        <div class="af-label">Convocation faite par</div>
+        <div style="margin-bottom:10px;">${author ? `[${escapeHtml(author.badge)}] ${escapeHtml(author.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Émise le ${fmtDate(c.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn" onclick="closeModal();openPublicLinkModal('${c.convocationNumber}','convocation')">🔗 Lien public</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditConvocationPage('${c.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
+
+let convocationFormDraft = null;
+function openNewConvocationPage(presetCitizenId, presetReason, sourceArrestId){
+  convocationFormDraft = {
+    id: null, convocationNumber: null,
+    citizenId: presetCitizenId || '', reason: presetReason || '',
+    daysToAppear: 2, authorBadge: SESSION.badge, status: 'Envoyée',
+    sourceArrestId: sourceArrestId || null
+  };
+  currentPage = 'convocationForm';
+  render();
+}
+function openEditConvocationPage(id){
+  const existing = DB.convocations.find(c => c.id === id);
+  if(!existing) return;
+  convocationFormDraft = {
+    id: existing.id, convocationNumber: existing.convocationNumber,
+    citizenId: existing.citizenId || '', reason: existing.reason || '',
+    daysToAppear: existing.daysToAppear != null ? existing.daysToAppear : 2,
+    authorBadge: existing.authorBadge || SESSION.badge,
+    status: existing.status || 'Envoyée',
+    sourceArrestId: existing.sourceArrestId || null
+  };
+  currentPage = 'convocationForm';
+  render();
+}
+// Retour direct vers le rapport d'arrestation en cours d'édition (sans passer par goPage, pour
+// conserver le brouillon arrestFormDraft tel quel — même principe que le bouton "Retour" ailleurs).
+function backToArrestFromConvocation(){
+  currentPage = 'arrestReportForm';
+  render();
+}
+function renderConvocationForm(){
+  if(!convocationFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = convocationFormDraft;
+  const citizen = d.citizenId ? DB.citizens.find(c => c.id === d.citizenId) : null;
+  const citizenDisplay = citizen ? citizenIdentifierLabel(citizen) : '';
+  const officerOptions = DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${d.authorBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+  const backAction = d.sourceArrestId ? 'backToArrestFromConvocation()' : "goPage('convocations')";
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="${backAction}" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier la convocation' : 'Nouvelle convocation'}</div>${d.convocationNumber ? `<div class="page-sub">${escapeHtml(d.convocationNumber)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Personne convoquée :</label>
+      <div class="citizen-combo">
+        <input type="text" id="mf-citizenId-display" class="citizen-combo-input" autocomplete="off"
+          placeholder="${DB.citizens.length ? 'Rechercher un citoyen...' : 'Aucun citoyen enregistré'}"
+          value="${escapeHtml(citizenDisplay)}"
+          oninput="filterCitizenCombo(this)" onfocus="filterCitizenCombo(this)" onblur="hideCitizenComboLater(this)">
+        <input type="hidden" id="mf-citizenId" value="${escapeHtml(d.citizenId)}">
+        <div class="citizen-combo-results" id="mf-citizenId-results"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Raisons de la convocation :</label>
+      <textarea rows="8" placeholder="Ex. Motifs de la convocation..." oninput="convocationFormDraft.reason=this.value">${escapeHtml(d.reason)}</textarea>
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>Doit se présenter dans (nombre de jours) :</label>
+      <input type="number" min="0" step="1" value="${escapeHtml(String(d.daysToAppear))}" oninput="convocationFormDraft.daysToAppear=this.value">
+    </div>
+
+    <div class="field" style="max-width:420px;">
+      <label>Convocation faite par :</label>
+      <select onchange="convocationFormDraft.authorBadge=this.value">${officerOptions || '<option disabled>Aucun agent enregistré</option>'}</select>
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>État :</label>
+      <select onchange="convocationFormDraft.status=this.value">
+        ${CONVOCATION_STATUSES.map(s => `<option value="${escapeHtml(s)}" ${d.status===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="submitConvocation()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+async function submitConvocation(){
+  const d = convocationFormDraft;
+  if(!d.citizenId){ await infoDialog('Une personne convoquée est requise.'); return; }
+  const days = parseInt(d.daysToAppear, 10);
+  if(isNaN(days) || days < 0){ await infoDialog('Le délai (en jours) doit être un nombre valide.'); return; }
+  let convocationNumber = d.convocationNumber || nextConvocationNumber();
+  let record;
+  if(d.id){
+    const existing = DB.convocations.find(c => c.id === d.id);
+    const baseDate = existing.date || nowISO();
+    Object.assign(existing, {
+      citizenId: d.citizenId, reason: d.reason, daysToAppear: days,
+      dueDate: addDays(baseDate, days), authorBadge: d.authorBadge, status: d.status
+    });
+    record = existing;
+  } else {
+    const baseDate = nowISO();
+    record = {
+      id: uid('conv'), convocationNumber, citizenId: d.citizenId, reason: d.reason,
+      daysToAppear: days, date: baseDate, dueDate: addDays(baseDate, days),
+      authorBadge: d.authorBadge, status: d.status, sourceArrestId: d.sourceArrestId || null
+    };
+    DB.convocations.push(record);
+  }
+  const saved = await saveKey('convocations');
+  if(!saved){
+    await infoDialog("L'enregistrement a échoué (erreur de stockage). Réessaie dans un instant — tes données restent dans le formulaire.");
+    return;
+  }
+  await logAction(d.id ? 'Modification convocation' : 'Création convocation', `${convocationNumber} — ${citizenLabelForConvocation(record)}`);
+  await refreshConvocationStatuses(); // applique immédiatement "En retard" si le délai est déjà dépassé (ou l'inverse, si rallongé)
+  const returnToArrest = !!d.sourceArrestId;
+  convocationFormDraft = null;
+  if(returnToArrest){ currentPage = 'arrestReportForm'; render(); }
+  else { goPage('convocations'); }
 }
 
 /* ===================== DOSSIER — PPA (PERMIS DE PORT D'ARME) ===================== */
@@ -4865,7 +5125,7 @@ async function resetPubdocLogo(){
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
   penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
-  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte'
+  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation'
 };
 async function deleteEntity(collection, id){
   const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');
@@ -4897,13 +5157,17 @@ function buildPublicIncidentReportUrl(caseNumber){
 function buildPublicDetectiveReportUrl(caseNumber){
   return location.origin + location.pathname + '?public_detective=' + encodeURIComponent(caseNumber);
 }
+function buildPublicConvocationUrl(convocationNumber){
+  return location.origin + location.pathname + '?public_convocation=' + encodeURIComponent(convocationNumber);
+}
 function openPublicLinkModal(number, kind){
-  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident' ou 'report_detective'
+  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective' ou 'convocation'
   const url = kind === 'complaint' ? buildPublicComplaintUrl(number)
     : kind === 'report_incident' ? buildPublicIncidentReportUrl(number)
     : kind === 'report_detective' ? buildPublicDetectiveReportUrl(number)
+    : kind === 'convocation' ? buildPublicConvocationUrl(number)
     : buildPublicReportUrl(number);
-  const label = kind === 'complaint' ? 'Lien public de la plainte' : 'Lien public du rapport';
+  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : 'Lien public du rapport';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
@@ -5253,6 +5517,61 @@ function renderPublicDetectiveReport(idOrNumber){
   `;
 }
 
+function renderPublicConvocation(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const c = DB.convocations.find(x => x.convocationNumber === idOrNumber || x.id === idOrNumber);
+  if(!c){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Convocation introuvable</h2>
+      <p>Ce lien ne correspond à aucune convocation enregistrée, ou elle a été supprimée.</p>
+    </div>`;
+    return;
+  }
+
+  const citizen = DB.citizens.find(x => x.id === c.citizenId);
+  const author = DB.officers.find(o => o.badge === c.authorBadge);
+  const d = new Date(c.date);
+  const dateStr = d.toLocaleDateString('fr-FR');
+  const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const dueStr = c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—';
+  const tagClass = c.status === "S'est présenté" ? 'pubdoc-tag-ok' : c.status === 'En retard' ? 'pubdoc-tag-warn' : 'pubdoc-tag-neutral';
+
+  root.innerHTML = `
+    <div class="pubdoc">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${pubdocBadgeSvg()}</div>
+        <div>
+          <h1 class="pubdoc-title">Convocation${citizen ? ' : '+escapeHtml(citizen.firstName)+' '+escapeHtml(citizen.lastName) : ''}</h1>
+          <div class="pubdoc-subtitle">Document émis par le Département de Police de San Andreas</div>
+          <div class="pubdoc-ref">Référence : ${escapeHtml(c.convocationNumber)} · ${escapeHtml(c.id)}</div>
+        </div>
+      </div>
+
+      <div class="pubdoc-line">Émise le ${dateStr} à ${timeStr}</div>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Personne convoquée</th><th>Doit se présenter avant le</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${citizen ? escapeHtml(citizen.firstName)+' '+escapeHtml(citizen.lastName) : 'Non renseigné'}${citizen && citizen.phone ? '<br><span style="color:#9aa3b0;">'+escapeHtml(citizen.phone)+'</span>' : ''}</td>
+            <td class="mono">${dueStr}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="pubdoc-tag ${tagClass}" style="margin:6px 0 16px;">Statut : ${escapeHtml(c.status||'Envoyée')}</div>
+
+      <div class="pubdoc-section-title">Raisons de la convocation</div>
+      <div class="pubdoc-body-box" style="white-space:pre-line;">${escapeHtml(c.reason) || '<span style="color:#9aa3b0;">Non renseignées.</span>'}</div>
+
+      <div class="pubdoc-sign">${author ? 'Matricule ' + escapeHtml(author.badge) : ''}</div>
+      <div class="pubdoc-footer">Département de Police de San Andreas</div>
+    </div>
+  `;
+}
 
 async function init(){
   const publicId = new URLSearchParams(location.search).get('public_report');
@@ -5278,6 +5597,12 @@ async function init(){
     await loadAll();
     renderPublicDetectiveReport(publicDetectiveId);
     return; // pas de connexion nécessaire pour consulter un rapport d'enquête public
+  }
+  const publicConvocationId = new URLSearchParams(location.search).get('public_convocation');
+  if(publicConvocationId){
+    await loadAll();
+    renderPublicConvocation(publicConvocationId);
+    return; // pas de connexion nécessaire pour consulter une convocation publique
   }
   // Bascule le formulaire de connexion : matricule + mot de passe si Supabase est
   // configuré (authentification réelle), sinon l'ancien formulaire ouvert (matricule + nom).

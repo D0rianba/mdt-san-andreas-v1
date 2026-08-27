@@ -524,7 +524,7 @@
         <div class="ticker-track" id="ticker-track"></div>
       </div>
       <div class="ticker-add" id="bolo-add-btn" onclick="openBoloModal()">+ AJOUTER UN AVIS</div>
-      <div class="ticker-add" id="bolo-reset-btn" onclick="resetBolos()" title="Effacer tous les avis du bandeau">↺ RÉINITIALISER</div>
+      <div class="ticker-add" id="bolo-reset-btn" onclick="openBoloRemoveModal()" title="Retirer un ou plusieurs avis du bandeau">🗑 RETIRER DES AVIS</div>
     </div>
 
     <div id="main-layout">
@@ -1232,21 +1232,36 @@ function openBoloModal(){
   });
 }
 
-async function resetBolos(){
+async function openBoloRemoveModal(){
   if(!hasRankAtLeast(DB.settings.boloMinRank)){
     await infoDialog(`Cette action est réservée au grade ${DB.settings.boloMinRank} et au-dessus.`);
     return;
   }
   if(DB.bolos.length === 0){
-    await infoDialog("Le bandeau est déjà vide, il n'y a rien à réinitialiser.");
+    await infoDialog("Le bandeau est vide, il n'y a rien à retirer.");
     return;
   }
-  const ok = await confirmDialog('Effacer tous les avis du bandeau BOLO ? Cette action est irréversible.');
-  if(!ok) return;
-  DB.bolos = [];
-  await saveKey('bolos');
-  await logAction('Réinitialisation BOLO', 'Bandeau vidé');
-  renderTicker();
+  const options = [...DB.bolos].reverse().map(b => ({
+    value: b.id,
+    label: `${b.type} — ${b.text}${b.author ? ' ('+b.author+')' : ''}`
+  }));
+  showModal({
+    title: 'Retirer des avis du bandeau',
+    fields: [
+      { key:'ids', label:'Avis à retirer', type:'multiselect', options,
+        helper:"Sélectionne les avis à retirer du bandeau BOLO." }
+    ],
+    initial: { ids: [] },
+    submitLabel: 'Retirer',
+    onSubmit: async (data) => {
+      const ids = data.ids || [];
+      if(!ids.length){ await infoDialog('Sélectionne au moins un avis à retirer.'); return; }
+      DB.bolos = DB.bolos.filter(b => !ids.includes(b.id));
+      await saveKey('bolos');
+      await logAction('Suppression BOLO', `${ids.length} avis retiré(s)`);
+      renderTicker();
+    }
+  });
 }
 
 /* ===================== GENERIC MODAL ===================== */

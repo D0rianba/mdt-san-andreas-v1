@@ -772,7 +772,7 @@ const DEFAULT_RANKS = [
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', defconMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{}, sectionOverrides:{}, customSections:[] };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', defconMinRank:'Captain', divisionLogos:{}, rankLogos:{}, rankHourlyRates:{}, sectionAccess:{}, sectionOverrides:{}, customSections:[] };
 // Fusionne les sections intégrées (SECTION_REGISTRY) et les sections personnalisées créées depuis
 // Paramètres > Gestion Section, pour que l'accès, la navigation et le menu les traitent de façon
 // identique (mêmes fonctions hasSectionAccess/goPage/updateNavVisibility).
@@ -801,6 +801,7 @@ const SECTION_REGISTRY = [
   { key:'convocations', label:'Convocation', group:'Dossier', icon:'📨' },
   { key:'roster', label:'Effectifs', group:'Service', icon:'★' },
   { key:'myHours', label:'Mes heures de service', group:'Service', icon:'⏱' },
+  { key:'serviceHours', label:'Heures de service', group:'Service', icon:'💰' },
   { key:'internalConvocations', label:'Convocation Interne', group:'Service', icon:'📨' },
   { key:'detectiveReports', label:'Rapports Detective', group:'Detective', icon:'⚑' },
   { key:'planning_detective', label:'Planning', group:'Detective', icon:'📅', division:'Detective Division' },
@@ -1127,6 +1128,13 @@ async function loadAll(){
       }
     });
     if(divSectionsMigrated) await saveKey('settings');
+  }
+  // migration (une seule fois) : "Heures de service" (accès admin/gradé, salaires+IBAN de tous les
+  // agents) est réservée par défaut au seuil "captainTierMinRank", modifiable ensuite depuis
+  // Paramètres > Gestion Section comme n'importe quelle autre section.
+  if(DB.settings.sectionAccess && DB.settings.sectionAccess.serviceHours === undefined){
+    DB.settings.sectionAccess.serviceHours = DB.settings.captainTierMinRank || 'Captain';
+    await saveKey('settings');
   }
   applyBranding();
   populateLoginRankOptions();
@@ -2072,6 +2080,7 @@ function render(){
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
   else if(currentPage === 'myHours') c.innerHTML = renderMyHours();
+  else if(currentPage === 'serviceHours') c.innerHTML = renderServiceHours();
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
   else if(currentPage === 'divisionReportForm') c.innerHTML = renderDivisionReportForm();
   else if(DIVISION_REPORT_SECTIONS.some(s => s.reportsKey === currentPage)){
@@ -5741,6 +5750,48 @@ async function saveMyHours(){
     infoDialog("Erreur lors de l'enregistrement.");
   }
 }
+// Vue d'ensemble (Captain et plus, seuil réglable depuis Paramètres > Gestion Section) des heures
+// de service déclarées par chaque agent, avec salaire calculé à partir du taux horaire de son
+// grade actuel (Paramètres > Grades), et son IBAN pour le versement.
+function renderServiceHours(){
+  if(!hasSectionAccess('serviceHours')) return `<div class="empty-state"><div class="em-icon">💰</div>Accès réservé.</div>`;
+  const list = [...DB.officers].sort((a,b) => a.badge.localeCompare(b.badge, undefined, {numeric:true}));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Heures de service</div><div class="page-sub">HEURES DÉCLARÉES · SALAIRE PAR GRADE</div></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead>
+        <tr>
+          <th>Matricule</th><th>Nom</th>
+          ${WEEK_DAYS.map(d => `<th>${d.label}</th>`).join('')}
+          <th>Total</th><th>Salaire</th><th>IBAN</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(o => {
+          const hours = { ...defaultWeeklyHours(), ...(o.weeklyHours||{}) };
+          const total = WEEK_DAYS.reduce((sum, d) => sum + (Number(hours[d.key]) || 0), 0);
+          const rate = hourlyRateForRank(o.rank);
+          const salary = total * rate;
+          return `
+          <tr>
+            <td class="mono row-name">${escapeHtml(o.badge)}</td>
+            <td>${escapeHtml(o.name)}</td>
+            ${WEEK_DAYS.map(d => `<td class="mono">${escapeHtml(String(hours[d.key] ?? 0))}</td>`).join('')}
+            <td class="mono">${!total ? `<span class="tag tag-red">0</span>` : total}</td>
+            <td class="mono">${fmtMoney(salary)}</td>
+            <td class="mono">${o.iban ? `${escapeHtml(o.iban)} <button class="icon-btn" title="Copier" onclick="copyIban('${escapeHtml(o.iban).replace(/'/g,"\\'")}')">⧉</button>` : '<span class="helper-text">—</span>'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">💰</div>Aucun agent enregistré.</div>`}
+  `;
+}
+function copyIban(iban){
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(iban);
+}
 // Compte les dossiers d'une collection réalisés par un agent (matricule présent dans au moins un
 // des champs fournis), répartis en 7 derniers jours / 30 derniers jours / depuis toujours.
 function countDossiersForOfficer(collection, badge, fields){
@@ -6569,6 +6620,12 @@ function renderSettingsPage(){
   `;
 }
 
+function hourlyRateForRank(rank){
+  return Number((DB.settings.rankHourlyRates||{})[rank]) || 0;
+}
+function fmtMoney(n){
+  return '$ ' + Math.round(Number(n)||0).toLocaleString('fr-FR');
+}
 function renderSettingsGradesTab(){
   const displayRanks = [...RANK_ORDER].reverse(); // du plus haut au plus bas, pour une lecture hiérarchique naturelle
   const rankRows = displayRanks.map((rank, dispIdx) => {
@@ -6577,16 +6634,19 @@ function renderSettingsGradesTab(){
     const isBottom = dispIdx === displayRanks.length - 1;
     const logoUrl = DB.settings.rankLogos && DB.settings.rankLogos[rank];
     const logoPreview = logoUrl ? `<img src="${escapeHtml(logoUrl)}" style="object-fit:contain;">` : '—';
+    const hourlyRate = hourlyRateForRank(rank);
     return `
       <tr>
         <td class="mono" style="color:var(--text-faint);">${dispIdx+1}</td>
         <td><div class="settings-logo-preview" style="width:30px;height:30px;border-radius:6px;font-size:11px;">${logoPreview}</div></td>
         <td class="row-name">${escapeHtml(rank)}</td>
         <td>${holders ? `<span class="tag tag-blue">${holders} agent${holders>1?'s':''}</span>` : '<span class="tag tag-grey">Aucun</span>'}</td>
+        <td class="mono">${fmtMoney(hourlyRate)}/h</td>
         <td class="row-actions">
           <button class="icon-btn" ${isTop?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','up')" title="Monter dans la hiérarchie">↑</button>
           <button class="icon-btn" ${isBottom?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','down')" title="Descendre dans la hiérarchie">↓</button>
           <button class="icon-btn" onclick="openRenameRankModal('${escapeHtml(rank)}')">Renommer</button>
+          <button class="icon-btn" onclick="openRankHourlyRateModal('${escapeHtml(rank)}')">Taux horaire</button>
           <button class="icon-btn" onclick="openRankLogoModal('${escapeHtml(rank)}')">Logo</button>
           ${logoUrl ? `<button class="icon-btn" onclick="resetRankLogo('${escapeHtml(rank)}')">Sans logo</button>` : ''}
           <button class="icon-btn danger" onclick="deleteRank('${escapeHtml(rank)}')">Suppr.</button>
@@ -6603,7 +6663,7 @@ function renderSettingsGradesTab(){
       <div class="settings-section-title">Grades du service</div>
       <div class="settings-section-sub">Ordre, renommage, logo, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
       <table>
-        <thead><tr><th style="width:36px;"></th><th style="width:44px;"></th><th>Grade</th><th>Effectif</th><th></th></tr></thead>
+        <thead><tr><th style="width:36px;"></th><th style="width:44px;"></th><th>Grade</th><th>Effectif</th><th>Taux horaire</th><th></th></tr></thead>
         <tbody>${rankRows}</tbody>
       </table>
       <button class="btn" style="margin-top:12px;" onclick="openAddRankModal()">+ Ajouter un grade</button>
@@ -6905,6 +6965,10 @@ async function renameRank(oldName, newName){
     DB.settings.rankLogos[newName] = DB.settings.rankLogos[oldName];
     delete DB.settings.rankLogos[oldName];
   }
+  if(DB.settings.rankHourlyRates && DB.settings.rankHourlyRates[oldName] !== undefined){
+    DB.settings.rankHourlyRates[newName] = DB.settings.rankHourlyRates[oldName];
+    delete DB.settings.rankHourlyRates[oldName];
+  }
   if(DB.settings.sectionAccess){
     Object.keys(DB.settings.sectionAccess).forEach(k => {
       if(DB.settings.sectionAccess[k] === oldName) DB.settings.sectionAccess[k] = newName;
@@ -6915,6 +6979,26 @@ async function renameRank(oldName, newName){
   await saveKey('settings');
   await logAction('Modification grade', `"${oldName}" renommé en "${newName}"` + (_supabaseConfigured ? ' (comptes Supabase synchronisés)' : ''));
   render();
+}
+
+// Taux horaire (par grade) utilisé pour calculer le salaire dans "Heures de service" (Salaire =
+// total d'heures de la semaine × taux horaire du grade actuel de l'agent).
+function openRankHourlyRateModal(rank){
+  if(!isAdmin()) return;
+  showModal({
+    title: 'Taux horaire — ' + rank,
+    fields: [{ key:'rate', label:'Taux horaire ($/h)', type:'number', placeholder:'0' }],
+    initial: { rate: hourlyRateForRank(rank) },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      const rate = Math.max(0, Number(data.rate) || 0);
+      DB.settings.rankHourlyRates = DB.settings.rankHourlyRates || {};
+      DB.settings.rankHourlyRates[rank] = rate;
+      await saveKey('settings');
+      await logAction('Modification taux horaire', `${rank} → ${fmtMoney(rate)}/h`);
+      render();
+    }
+  });
 }
 
 function openAddRankModal(){

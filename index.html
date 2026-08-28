@@ -5557,7 +5557,7 @@ async function changeOfficerBadge(oldBadge, newBadge){
     (DB[col]||[]).forEach(item => { if(item[field] === oldBadge) item[field] = newBadge; });
   });
   const arrayBadgeFields = [
-    ['arrestReports','agentBadges'], ['complaints','assignedAgentBadges'],
+    ['arrestReports','agentBadges'], ['complaints','assignedAgentBadges'], ['divisionReports','presentBadges'],
   ];
   arrayBadgeFields.forEach(([col, field]) => {
     (DB[col]||[]).forEach(item => {
@@ -5583,7 +5583,7 @@ async function changeOfficerBadge(oldBadge, newBadge){
     if(tbCallsign) tbCallsign.textContent = SESSION.badge;
   }
 
-  const toSave = new Set(['officers','arrestReports','detectiveReports','complaints','convocations','reports','dispatchAssignments', ...AUTHOR_COLLECTIONS]);
+  const toSave = new Set(['officers','arrestReports','detectiveReports','complaints','convocations','reports','dispatchAssignments','divisionReports', ...AUTHOR_COLLECTIONS]);
   for(const col of toSave) await saveKey(col);
 
   await logAction('Modification matricule', `"${oldBadge}" renommé en "${newBadge}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
@@ -5696,13 +5696,14 @@ function renderDivisionReports(division, sectionLabel){
         ${list.map(r => {
           const responsible = DB.officers.find(o => o.badge === r.responsibleBadge);
           return `
-          <tr style="cursor:pointer;" onclick="openEditDivisionReportPage('${r.id}')">
+          <tr style="cursor:pointer;" onclick="openDivisionReportView('${r.id}')">
             <td class="mono row-name">${escapeHtml(r.reportNumber)}</td>
             <td>${escapeHtml(r.title)}</td>
             <td>${responsible ? escapeHtml(responsible.name) : '<span class="helper-text">—</span>'}</td>
             <td class="mono">${r.dateTime ? new Date(r.dateTime).toLocaleDateString('fr-FR') : '—'}</td>
             <td>${r.status==='Clôturé' ? '<span class="tag tag-green">Clôturé</span>' : '<span class="tag tag-amber">Ouvert</span>'}</td>
             <td class="row-actions">
+              <button class="icon-btn" onclick="event.stopPropagation();openEditDivisionReportPage('${r.id}')">Modifier</button>
               <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('divisionReports','${r.id}')">Suppr.</button>
             </td>
           </tr>`;
@@ -5711,11 +5712,58 @@ function renderDivisionReports(division, sectionLabel){
     </table>` : `<div class="empty-state"><div class="em-icon">📋</div>Aucun rapport enregistré.</div>`}
   `;
 }
+// Fenêtre de détail affichée au clic sur un rapport de division (même principe que les rapports Detective).
+function openDivisionReportView(id){
+  const r = DB.divisionReports.find(x => x.id === id);
+  if(!r) return;
+  const responsible = DB.officers.find(o => o.badge === r.responsibleBadge);
+  const presentOfficers = (r.presentBadges||[]).map(b => DB.officers.find(o => o.badge === b)).filter(Boolean);
+  const def = DIVISION_REPORT_SECTIONS.find(s => s.division === r.division);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:720px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(r.reportNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          ${def ? `<span class="tag tag-blue">${escapeHtml(def.reportsLabel)}</span>` : ''}
+          ${r.status==='Clôturé' ? '<span class="tag tag-green">Clôturé</span>' : '<span class="tag tag-amber">Ouvert</span>'}
+        </div>
+
+        <div class="af-label">Titre</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(r.title)||'—'}</div>
+
+        <div class="af-label">Date et heure</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${r.dateTime ? new Date(r.dateTime).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
+
+        <div class="af-label">Effectifs présents</div>
+        <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">${presentOfficers.length ? presentOfficers.map(o=>`<span class="tag tag-amber">${escapeHtml(o.name)}</span>`).join('') : '<span class="helper-text">Aucun renseigné.</span>'}</div>
+
+        <div class="af-label">Rédigé par</div>
+        <div style="margin-bottom:10px;">${responsible ? `[${escapeHtml(responsible.badge)}] ${escapeHtml(responsible.name)}` : '<span class="helper-text">—</span>'}</div>
+
+        <div class="af-label">Contenu</div>
+        <div class="rte-editor" style="min-height:120px;background:var(--panel-2);white-space:pre-line;">${escapeHtml(r.content) || '<span class="helper-text">Aucun contenu renseigné.</span>'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Enregistré par ${escapeHtml(r.author)} le ${fmtDate(r.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditDivisionReportPage('${r.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
 let divisionReportFormDraft = null;
 function openNewDivisionReportPage(division){
   divisionReportFormDraft = {
     id: null, division, title: '', dateTime: new Date().toISOString().slice(0,16),
-    content: '', responsibleBadge: SESSION.badge, status: 'Ouvert'
+    content: '', responsibleBadge: SESSION.badge, presentBadges: [], status: 'Ouvert'
   };
   currentPage = 'divisionReportForm';
   render();
@@ -5726,7 +5774,9 @@ function openEditDivisionReportPage(id){
   divisionReportFormDraft = {
     id: existing.id, division: existing.division, title: existing.title || '',
     dateTime: existing.dateTime || '', content: existing.content || '',
-    responsibleBadge: existing.responsibleBadge || SESSION.badge, status: existing.status || 'Ouvert'
+    responsibleBadge: existing.responsibleBadge || SESSION.badge,
+    presentBadges: Array.isArray(existing.presentBadges) ? [...existing.presentBadges] : [],
+    status: existing.status || 'Ouvert'
   };
   currentPage = 'divisionReportForm';
   render();
@@ -5758,6 +5808,14 @@ function renderDivisionReportForm(){
     </div>
 
     <div class="field">
+      <label>Effectifs présents :</label>
+      <select multiple size="6" onchange="divisionReportFormDraft.presentBadges=[...this.selectedOptions].map(o=>o.value)">
+        ${officerPool.map(o => `<option value="${escapeHtml(o.badge)}" ${d.presentBadges.includes(o.badge)?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('') || '<option disabled>Aucun agent enregistré</option>'}
+      </select>
+      <div class="helper-text">Ctrl/Cmd + clic pour sélectionner plusieurs agents.</div>
+    </div>
+
+    <div class="field">
       <label>Contenu :</label>
       <textarea rows="10" placeholder="Détails du rapport..." oninput="divisionReportFormDraft.content=this.value">${escapeHtml(d.content)}</textarea>
     </div>
@@ -5783,12 +5841,12 @@ async function submitDivisionReport(){
   if(!d.title.trim()){ await infoDialog('Le titre est requis.'); return; }
   if(d.id){
     const existing = DB.divisionReports.find(r => r.id === d.id);
-    Object.assign(existing, { title:d.title, dateTime:d.dateTime, content:d.content, responsibleBadge:d.responsibleBadge, status:d.status });
+    Object.assign(existing, { title:d.title, dateTime:d.dateTime, content:d.content, responsibleBadge:d.responsibleBadge, presentBadges:d.presentBadges, status:d.status });
   } else {
     DB.divisionReports.push({
       id: uid('drep'), reportNumber: nextDivisionReportNumber(d.division), division: d.division,
       title: d.title, dateTime: d.dateTime, content: d.content, responsibleBadge: d.responsibleBadge,
-      status: d.status, date: nowISO(), author: SESSION.badge
+      presentBadges: d.presentBadges, status: d.status, date: nowISO(), author: SESSION.badge
     });
   }
   await saveKey('divisionReports');

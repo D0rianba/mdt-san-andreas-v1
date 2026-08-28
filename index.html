@@ -4569,7 +4569,7 @@ let academyApplicationSearch = '';
 function renderAcademyApplications(){
   const search = academyApplicationSearch.toLowerCase();
   const list = DB.academyApplications
-    .filter(a => (a.firstName+' '+a.lastName+' '+a.phone+' '+(a.motivation||'')).toLowerCase().includes(search))
+    .filter(a => (a.firstName+' '+a.lastName+' '+a.phone+' '+(a.discord||'')+' '+(a.motivation||'')).toLowerCase().includes(search))
     .sort((a,b) => new Date(b.date)-new Date(a.date));
   return `
     <div class="page-head">
@@ -4618,6 +4618,9 @@ function openAcademyApplicationView(id){
         <div class="af-label">Téléphone</div>
         <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${escapeHtml(a.phone)||'—'}</div>
 
+        <div class="af-label">Autre moyen de contact</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(a.discord)||'—'}</div>
+
         <div class="af-label">Motivation</div>
         <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);white-space:pre-line;">${escapeHtml(a.motivation)||'—'}</div>
 
@@ -4656,7 +4659,7 @@ function renderPublicAcademyApplicationForm(){
       <div class="pubdoc-head">
         <div class="pubdoc-badge">${badgeHtml}</div>
         <div>
-          <h1 class="pubdoc-title">Candidature — Police Academy</h1>
+          <h1 class="pubdoc-title">Candidature — Los Santos Police Dept.</h1>
           <div class="pubdoc-subtitle">Département de Police de San Andreas</div>
         </div>
       </div>
@@ -4666,6 +4669,7 @@ function renderPublicAcademyApplicationForm(){
         <div class="pubform-field"><label>Nom *</label><input id="paf-lastName" type="text"></div>
         <div class="pubform-field"><label>Date de naissance</label><input id="paf-dob" type="text" placeholder="JJ/MM/AAAA"></div>
         <div class="pubform-field"><label>Téléphone *</label><input id="paf-phone" type="text"></div>
+        <div class="pubform-field"><label>Un autre moyen de te joindre si besoin ?</label><input id="paf-discord" type="text" placeholder="Ton identifiant Discord"></div>
         <div class="pubform-field"><label>Motivation *</label><textarea id="paf-motivation" rows="6" placeholder="Explique pourquoi tu souhaites rejoindre la Police Academy..."></textarea></div>
         <div id="paf-error" style="color:#d64545;font-size:12.5px;margin-bottom:12px;display:none;"></div>
         <button class="pubform-submit" onclick="submitPublicAcademyApplication()">Envoyer ma candidature</button>
@@ -4683,6 +4687,7 @@ async function submitPublicAcademyApplication(){
   const lastName = document.getElementById('paf-lastName').value.trim();
   const dob = document.getElementById('paf-dob').value.trim();
   const phone = document.getElementById('paf-phone').value.trim();
+  const discord = document.getElementById('paf-discord').value.trim();
   const motivation = document.getElementById('paf-motivation').value.trim();
   const errorEl = document.getElementById('paf-error');
   if(!firstName || !lastName || !phone || !motivation){
@@ -4699,7 +4704,7 @@ async function submitPublicAcademyApplication(){
     const res = await window.storage.get(K.academyApplications, true);
     const current = res && res.value ? JSON.parse(res.value) : [];
     current.push({
-      id: uid('apply'), firstName, lastName, dob, phone, motivation,
+      id: uid('apply'), firstName, lastName, dob, phone, discord, motivation,
       status: 'En attente', date: nowISO()
     });
     await window.storage.set(K.academyApplications, JSON.stringify(current), true);

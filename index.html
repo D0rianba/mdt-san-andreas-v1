@@ -744,7 +744,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], internalConvocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[] };
 // Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
 // chaque niveau est éditable (Chief of Police uniquement).
 const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
@@ -789,6 +789,7 @@ const SECTION_REGISTRY = [
   { key:'complaints', label:'Plainte', group:'Dossier', icon:'📣' },
   { key:'convocations', label:'Convocation', group:'Dossier', icon:'📨' },
   { key:'roster', label:'Effectifs', group:'Service', icon:'★' },
+  { key:'internalConvocations', label:'Convocation Interne', group:'Service', icon:'📨' },
   { key:'detectiveReports', label:'Rapports Detective', group:'Detective', icon:'⚑' },
   { key:'planning_detective', label:'Planning', group:'Detective', icon:'📅', division:'Detective Division' },
   { key:'divrep_asu', label:'Rapports A.S.U.', group:'A.S.U.', icon:'🚁', division:'Air Support Division' },
@@ -974,7 +975,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
-  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports',
+  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports', internalConvocations:'db:internalConvocations',
   session:'session:current'
 };
 
@@ -1003,7 +1004,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports','internalConvocations']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -1185,6 +1186,7 @@ async function loadAll(){
 
   // convocations : synchronise "Envoyée" ↔ "En retard" avec la date d'échéance à chaque démarrage
   await refreshConvocationStatuses();
+  await refreshInternalConvocationStatuses();
 }
 async function saveKey(key){
   try{
@@ -2038,6 +2040,8 @@ function render(){
   else if(currentPage === 'complaintForm') c.innerHTML = renderComplaintForm();
   else if(currentPage === 'convocations') c.innerHTML = renderConvocations();
   else if(currentPage === 'convocationForm') c.innerHTML = renderConvocationForm();
+  else if(currentPage === 'internalConvocations') c.innerHTML = renderInternalConvocations();
+  else if(currentPage === 'internalConvocationForm') c.innerHTML = renderInternalConvocationForm();
   else if(currentPage === 'reports') c.innerHTML = renderReports();
   else if(currentPage === 'reportForm') c.innerHTML = renderReportForm();
   else if(currentPage === 'detectiveReportForm') c.innerHTML = renderDetectiveReportForm();
@@ -4114,25 +4118,32 @@ function addDays(isoDate, days){
   d.setDate(d.getDate() + (parseInt(days,10) || 0));
   return d.toISOString();
 }
-// Maintient automatiquement la cohérence entre le statut et l'échéance : bascule "Envoyée" vers
-// "En retard" (et inversement, si le délai est rallongé après coup) selon la date du jour. Les
-// statuts "S'est présenté" et "Annulée" sont définitifs et ne sont jamais modifiés automatiquement.
-async function refreshConvocationStatuses(){
+// Maintient automatiquement la cohérence entre le statut et l'échéance d'une convocation (bascule
+// "Envoyée" vers "En retard" et inversement selon la date du jour). Les statuts "S'est présenté" et
+// "Annulée" sont définitifs et ne sont jamais modifiés automatiquement. collectionKey : 'convocations'
+// (citoyens) ou 'internalConvocations' (agents) — même mécanique pour les deux.
+async function refreshConvocationStatusesFor(collectionKey){
   const now = Date.now();
   let changed = false;
-  (DB.convocations||[]).forEach(c => {
+  (DB[collectionKey]||[]).forEach(c => {
     if(!c.dueDate) return;
     const overdue = new Date(c.dueDate).getTime() < now;
     if(c.status === 'Envoyée' && overdue){ c.status = 'En retard'; changed = true; }
     else if(c.status === 'En retard' && !overdue){ c.status = 'Envoyée'; changed = true; }
   });
   if(changed){
-    await saveKey('convocations');
-    if(currentPage === 'convocations') render();
+    await saveKey(collectionKey);
+    if(currentPage === collectionKey) render();
   }
   return changed;
 }
-setInterval(refreshConvocationStatuses, 60000); // vérifie les échéances dépassées toutes les minutes
+async function refreshConvocationStatuses(){
+  return refreshConvocationStatusesFor('convocations');
+}
+async function refreshInternalConvocationStatuses(){
+  return refreshConvocationStatusesFor('internalConvocations');
+}
+setInterval(() => { refreshConvocationStatuses(); refreshInternalConvocationStatuses(); }, 60000); // vérifie les échéances dépassées toutes les minutes
 
 function citizenLabelForConvocation(c){
   const cit = DB.citizens.find(x => x.id === c.citizenId);
@@ -4341,6 +4352,197 @@ async function submitConvocation(){
   convocationFormDraft = null;
   if(returnToArrest){ currentPage = 'arrestReportForm'; render(); }
   else { goPage('convocations'); }
+}
+
+/* ===================== SERVICE — CONVOCATION INTERNE (agents) ===================== */
+function nextInternalConvocationNumber(){
+  const year = new Date().getFullYear();
+  const countThisYear = DB.internalConvocations.filter(c => c.convocationNumber && c.convocationNumber.includes('-'+year+'-')).length + 1;
+  return `CONVINT-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+function officerIdentityLabel(o){
+  return o ? `[${o.badge}] ${o.name} — ${o.rank}` : '';
+}
+let internalConvocationSearch = '';
+function renderInternalConvocations(){
+  const search = internalConvocationSearch.toLowerCase();
+  const list = DB.internalConvocations
+    .filter(c => (officerSearchTokens(c.summonedBadge)+' '+officerSearchTokens(c.summonerBadge)+' '+c.convocationNumber+' '+(c.reason||'')).toLowerCase().includes(search))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Convocation Interne</div><div class="page-sub">CONVOCATIONS À DESTINATION DES AGENTS</div></div>
+      <button class="btn btn-primary" onclick="openNewInternalConvocationPage()">+ Nouvelle convocation</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un agent, une raison, un n° de convocation..." value="${escapeHtml(internalConvocationSearch)}" oninput="internalConvocationSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N°</th><th>Agent convoqué</th><th>Convoqué par</th><th>Échéance</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(c => {
+          const summoned = DB.officers.find(o => o.badge === c.summonedBadge);
+          const summoner = DB.officers.find(o => o.badge === c.summonerBadge);
+          return `
+          <tr style="cursor:pointer;" onclick="openInternalConvocationView('${c.id}')">
+            <td class="mono row-name">${escapeHtml(c.convocationNumber)}</td>
+            <td>${summoned ? escapeHtml(summoned.name)+' ('+escapeHtml(summoned.rank)+')' : '<span class="helper-text">—</span>'}</td>
+            <td>${summoner ? escapeHtml(summoner.name) : '<span class="helper-text">—</span>'}</td>
+            <td class="mono">${c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—'}</td>
+            <td>${convocationStatusTag(c.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn" onclick="event.stopPropagation();openEditInternalConvocationPage('${c.id}')">Modifier</button>
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('internalConvocations','${c.id}')">Suppr.</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">📨</div>Aucune convocation interne enregistrée.</div>`}
+  `;
+}
+function openInternalConvocationView(id){
+  const c = DB.internalConvocations.find(x => x.id === id);
+  if(!c) return;
+  const summoned = DB.officers.find(o => o.badge === c.summonedBadge);
+  const summoner = DB.officers.find(o => o.badge === c.summonerBadge);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:620px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(c.convocationNumber)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;">${convocationStatusTag(c.status)}</div>
+
+        <div class="af-label">Agent convoqué</div>
+        <div style="margin-bottom:10px;">${summoned ? escapeHtml(officerIdentityLabel(summoned)) : '<span class="helper-text">Non renseigné</span>'}</div>
+
+        <div class="af-label">Convoqué par</div>
+        <div style="margin-bottom:10px;">${summoner ? escapeHtml(officerIdentityLabel(summoner)) : '<span class="helper-text">—</span>'}</div>
+
+        <div class="af-label">Raisons de la convocation</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);white-space:pre-line;">${escapeHtml(c.reason)||'—'}</div>
+
+        <div class="af-label">Doit se présenter avant le</div>
+        <div style="margin-bottom:10px;" class="mono">${c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—'}</div>
+
+        <div class="helper-text" style="margin-top:12px;">Émise le ${fmtDate(c.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+        <button class="btn" onclick="closeModal();openPublicLinkModal('${c.convocationNumber}','internalConvocation')">🔗 Lien public</button>
+        <button class="btn btn-primary" onclick="closeModal();openEditInternalConvocationPage('${c.id}')">Modifier</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
+let internalConvocationFormDraft = null;
+function openNewInternalConvocationPage(){
+  internalConvocationFormDraft = {
+    id: null, convocationNumber: null,
+    summonedBadge: '', reason: '', daysToAppear: 2, summonerBadge: SESSION.badge, status: 'Envoyée'
+  };
+  currentPage = 'internalConvocationForm';
+  render();
+}
+function openEditInternalConvocationPage(id){
+  const existing = DB.internalConvocations.find(c => c.id === id);
+  if(!existing) return;
+  internalConvocationFormDraft = {
+    id: existing.id, convocationNumber: existing.convocationNumber,
+    summonedBadge: existing.summonedBadge || '', reason: existing.reason || '',
+    daysToAppear: existing.daysToAppear != null ? existing.daysToAppear : 2,
+    summonerBadge: existing.summonerBadge || SESSION.badge,
+    status: existing.status || 'Envoyée'
+  };
+  currentPage = 'internalConvocationForm';
+  render();
+}
+function renderInternalConvocationForm(){
+  if(!internalConvocationFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = internalConvocationFormDraft;
+  const officerOptions = (badge) => DB.officers.map(o => `<option value="${escapeHtml(o.badge)}" ${badge===o.badge?'selected':''}>${escapeHtml(officerIdentityLabel(o))}</option>`).join('') || '<option disabled>Aucun agent enregistré</option>';
+
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('internalConvocations')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier la convocation' : 'Nouvelle convocation interne'}</div>${d.convocationNumber ? `<div class="page-sub">${escapeHtml(d.convocationNumber)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="field" style="max-width:480px;">
+      <label>Agent convoqué :</label>
+      <select onchange="internalConvocationFormDraft.summonedBadge=this.value">
+        <option value="">— Sélectionner —</option>
+        ${officerOptions(d.summonedBadge)}
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Raisons de la convocation :</label>
+      <textarea rows="8" placeholder="Ex. Motifs de la convocation..." oninput="internalConvocationFormDraft.reason=this.value">${escapeHtml(d.reason)}</textarea>
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>Doit se présenter dans (nombre de jours) :</label>
+      <input type="number" min="0" step="1" value="${escapeHtml(String(d.daysToAppear))}" oninput="internalConvocationFormDraft.daysToAppear=this.value">
+    </div>
+
+    <div class="field" style="max-width:480px;">
+      <label>Convoqué par :</label>
+      <select onchange="internalConvocationFormDraft.summonerBadge=this.value">${officerOptions(d.summonerBadge)}</select>
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>État :</label>
+      <select onchange="internalConvocationFormDraft.status=this.value">
+        ${CONVOCATION_STATUSES.map(s => `<option value="${escapeHtml(s)}" ${d.status===s?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="submitInternalConvocation()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+async function submitInternalConvocation(){
+  const d = internalConvocationFormDraft;
+  if(!d.summonedBadge){ await infoDialog('Un agent convoqué est requis.'); return; }
+  const days = parseInt(d.daysToAppear, 10);
+  if(isNaN(days) || days < 0){ await infoDialog('Le délai (en jours) doit être un nombre valide.'); return; }
+  let convocationNumber = d.convocationNumber || nextInternalConvocationNumber();
+  let record;
+  if(d.id){
+    const existing = DB.internalConvocations.find(c => c.id === d.id);
+    const baseDate = existing.date || nowISO();
+    Object.assign(existing, {
+      summonedBadge: d.summonedBadge, reason: d.reason, daysToAppear: days,
+      dueDate: addDays(baseDate, days), summonerBadge: d.summonerBadge, status: d.status
+    });
+    record = existing;
+  } else {
+    const baseDate = nowISO();
+    record = {
+      id: uid('iconv'), convocationNumber, summonedBadge: d.summonedBadge, reason: d.reason,
+      daysToAppear: days, date: baseDate, dueDate: addDays(baseDate, days),
+      summonerBadge: d.summonerBadge, status: d.status
+    };
+    DB.internalConvocations.push(record);
+  }
+  const saved = await saveKey('internalConvocations');
+  if(!saved){
+    await infoDialog("L'enregistrement a échoué (erreur de stockage). Réessaie dans un instant — tes données restent dans le formulaire.");
+    return;
+  }
+  const summonedOfficer = DB.officers.find(o => o.badge === record.summonedBadge);
+  await logAction(d.id ? 'Modification convocation interne' : 'Création convocation interne', `${convocationNumber} — ${summonedOfficer ? summonedOfficer.name : record.summonedBadge}`);
+  await refreshInternalConvocationStatuses();
+  internalConvocationFormDraft = null;
+  goPage('internalConvocations');
 }
 
 /* ===================== DOSSIER — PPA (PERMIS DE PORT D'ARME) ===================== */
@@ -5552,6 +5754,7 @@ async function changeOfficerBadge(oldBadge, newBadge){
     ['complaints','takenByBadge'], ['convocations','authorBadge'],
     ['reports','dispatcherBadge'], ['reports','supervisorBadge'],
     ['divisionReports','responsibleBadge'],
+    ['internalConvocations','summonedBadge'], ['internalConvocations','summonerBadge'],
   ];
   singleBadgeFields.forEach(([col, field]) => {
     (DB[col]||[]).forEach(item => { if(item[field] === oldBadge) item[field] = newBadge; });
@@ -5583,7 +5786,7 @@ async function changeOfficerBadge(oldBadge, newBadge){
     if(tbCallsign) tbCallsign.textContent = SESSION.badge;
   }
 
-  const toSave = new Set(['officers','arrestReports','detectiveReports','complaints','convocations','reports','dispatchAssignments','divisionReports', ...AUTHOR_COLLECTIONS]);
+  const toSave = new Set(['officers','arrestReports','detectiveReports','complaints','convocations','internalConvocations','reports','dispatchAssignments','divisionReports', ...AUTHOR_COLLECTIONS]);
   for(const col of toSave) await saveKey(col);
 
   await logAction('Modification matricule', `"${oldBadge}" renommé en "${newBadge}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
@@ -6731,7 +6934,7 @@ async function resetRankLogo(rank){
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
   penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
-  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation', divisionReports:'Rapport de division'
+  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation', divisionReports:'Rapport de division', internalConvocations:'Convocation interne'
 };
 async function deleteEntity(collection, id){
   const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');
@@ -6767,18 +6970,22 @@ function buildPublicDetectiveReportUrl(caseNumber){
 function buildPublicConvocationUrl(convocationNumber){
   return location.origin + location.pathname + '?public_convocation=' + encodeURIComponent(convocationNumber);
 }
+function buildPublicInternalConvocationUrl(convocationNumber){
+  return location.origin + location.pathname + '?public_internal_convocation=' + encodeURIComponent(convocationNumber);
+}
 function buildPublicWarrantUrl(warrantNumber){
   return location.origin + location.pathname + '?public_warrant=' + encodeURIComponent(warrantNumber);
 }
 function openPublicLinkModal(number, kind){
-  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective', 'convocation' ou 'warrant'
+  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective', 'convocation', 'internalConvocation' ou 'warrant'
   const url = kind === 'complaint' ? buildPublicComplaintUrl(number)
     : kind === 'report_incident' ? buildPublicIncidentReportUrl(number)
     : kind === 'report_detective' ? buildPublicDetectiveReportUrl(number)
     : kind === 'convocation' ? buildPublicConvocationUrl(number)
+    : kind === 'internalConvocation' ? buildPublicInternalConvocationUrl(number)
     : kind === 'warrant' ? buildPublicWarrantUrl(number)
     : buildPublicReportUrl(number);
-  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : kind === 'warrant' ? 'Lien public du mandat' : 'Lien public du rapport';
+  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : kind === 'internalConvocation' ? 'Lien public de la convocation interne' : kind === 'warrant' ? 'Lien public du mandat' : 'Lien public du rapport';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
@@ -7184,6 +7391,72 @@ function renderPublicConvocation(idOrNumber){
   `;
 }
 
+function renderPublicInternalConvocation(idOrNumber){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+
+  const c = DB.internalConvocations.find(x => x.convocationNumber === idOrNumber || x.id === idOrNumber);
+  if(!c){
+    root.innerHTML = `<div class="pubdoc-notfound">
+      <h2>Convocation introuvable</h2>
+      <p>Ce lien ne correspond à aucune convocation interne enregistrée, ou elle a été supprimée.</p>
+    </div>`;
+    return;
+  }
+
+  const summoned = DB.officers.find(o => o.badge === c.summonedBadge);
+  const summoner = DB.officers.find(o => o.badge === c.summonerBadge);
+  const d = new Date(c.date);
+  const dateStr = d.toLocaleDateString('fr-FR');
+  const timeStr = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const dueStr = c.dueDate ? new Date(c.dueDate).toLocaleDateString('fr-FR') : '—';
+  const tagClass = c.status === "S'est présenté" ? 'pubdoc-tag-ok' : c.status === 'En retard' ? 'pubdoc-tag-warn' : 'pubdoc-tag-neutral';
+
+  root.innerHTML = `
+    <div class="pubdoc">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${pubdocBadgeSvg()}</div>
+        <div>
+          <h1 class="pubdoc-title">Convocation interne${summoned ? ' : '+escapeHtml(summoned.name) : ''}</h1>
+          <div class="pubdoc-subtitle">Document émis par le Département de Police de San Andreas</div>
+          <div class="pubdoc-ref">Référence : ${escapeHtml(c.convocationNumber)} · ${escapeHtml(c.id)}</div>
+        </div>
+      </div>
+
+      <div class="pubdoc-line">Émise le ${dateStr} à ${timeStr}</div>
+
+      <table class="pubdoc-table">
+        <thead><tr><th>Matricule</th><th>Nom</th><th>Prénom</th><th>Grade</th><th>Rôle</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">${summoned ? escapeHtml(summoned.badge) : '—'}</td>
+            <td colspan="2">${summoned ? escapeHtml(summoned.name) : 'Non renseigné'}</td>
+            <td>${summoned ? escapeHtml(summoned.rank) : '—'}</td>
+            <td>Convoqué</td>
+          </tr>
+          <tr>
+            <td class="mono">${summoner ? escapeHtml(summoner.badge) : '—'}</td>
+            <td colspan="2">${summoner ? escapeHtml(summoner.name) : 'Non renseigné'}</td>
+            <td>${summoner ? escapeHtml(summoner.rank) : '—'}</td>
+            <td>Convoqueur</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="pubdoc-line">Doit se présenter avant le <b>${dueStr}</b></div>
+
+      <div class="pubdoc-tag ${tagClass}" style="margin:6px 0 16px;">Statut : ${escapeHtml(c.status||'Envoyée')}</div>
+
+      <div class="pubdoc-section-title">Raisons de la convocation</div>
+      <div class="pubdoc-body-box" style="white-space:pre-line;">${escapeHtml(c.reason) || '<span style="color:#9aa3b0;">Non renseignées.</span>'}</div>
+
+      <div class="pubdoc-sign">${summoner ? 'Matricule ' + escapeHtml(summoner.badge) : ''}</div>
+      <div class="pubdoc-footer">Département de Police de San Andreas</div>
+    </div>
+  `;
+}
+
 function renderPublicWarrant(idOrNumber){
   const root = document.getElementById('public-report-root');
   document.getElementById('app').style.display = 'none';
@@ -7290,6 +7563,12 @@ async function init(){
     await loadAll();
     renderPublicConvocation(publicConvocationId);
     return; // pas de connexion nécessaire pour consulter une convocation publique
+  }
+  const publicInternalConvocationId = new URLSearchParams(location.search).get('public_internal_convocation');
+  if(publicInternalConvocationId){
+    await loadAll();
+    renderPublicInternalConvocation(publicInternalConvocationId);
+    return; // pas de connexion nécessaire pour consulter une convocation interne publique
   }
   const publicWarrantId = new URLSearchParams(location.search).get('public_warrant');
   if(publicWarrantId){

@@ -7451,7 +7451,7 @@ function renderPublicInternalConvocation(idOrNumber){
       <div class="pubdoc-section-title">Raisons de la convocation</div>
       <div class="pubdoc-body-box" style="white-space:pre-line;">${escapeHtml(c.reason) || '<span style="color:#9aa3b0;">Non renseignées.</span>'}</div>
 
-      <div class="pubdoc-sign">${summoner ? 'Matricule ' + escapeHtml(summoner.badge) : ''}</div>
+      <div class="pubdoc-sign">${summoner ? 'Le ' + escapeHtml(summoner.rank) + ', matricule ' + escapeHtml(summoner.badge) + ' ' + escapeHtml(summoner.name) : ''}</div>
       <div class="pubdoc-footer">Département de Police de San Andreas</div>
     </div>
   `;

@@ -855,9 +855,10 @@ function officerSearchTokens(badge){
 }
 // Configuration d'accès d'une section (Paramètres > Gestion Section) : { rank, divisions }.
 // rank : 'all' (tout le monde, valeur implicite par défaut si non configurée), 'hidden' (personne
-// — prioritaire sur tout, y compris les divisions), ou un nom de grade (visible à partir de ce
-// grade). divisions : liste de divisions dont les membres ont accès en plus du critère de grade.
-// Conserve la compatibilité avec l'ancien format (une simple chaîne = seuil de grade seul).
+// — prioritaire sur tout, y compris les divisions), 'none' (aucun grade ne donne accès — seule
+// l'appartenance à une division listée compte), ou un nom de grade (visible à partir de ce grade,
+// en plus des divisions). divisions : liste de divisions dont les membres ont accès en plus du
+// critère de grade. Conserve la compatibilité avec l'ancien format (une simple chaîne = grade seul).
 function sectionAccessConfig(key){
   const raw = DB.settings.sectionAccess && DB.settings.sectionAccess[key];
   if(raw == null) return { rank:'all', divisions:[] };
@@ -871,7 +872,7 @@ function hasSectionAccess(key){
   const cfg = sectionAccessConfig(key);
   if(cfg.rank === 'hidden') return false;
   if(cfg.rank === 'all') return true;
-  if(hasRankAtLeast(cfg.rank)) return true;
+  if(cfg.rank !== 'none' && hasRankAtLeast(cfg.rank)) return true;
   if(cfg.divisions.length){
     const officer = currentOfficer();
     if(officer && Array.isArray(officer.divisions) && officer.divisions.some(d => cfg.divisions.includes(d))) return true;
@@ -884,7 +885,7 @@ async function setSectionAccessValue(key, value){
   const current = sectionAccessConfig(key);
   DB.settings.sectionAccess[key] = { rank: value, divisions: current.divisions };
   await saveKey('settings');
-  const label = value === 'all' ? 'Visible (tous grades)' : value === 'hidden' ? 'Non visible' : `Visible à partir de ${value}`;
+  const label = value === 'all' ? 'Visible (tous grades)' : value === 'none' ? 'Divisions uniquement' : value === 'hidden' ? 'Non visible' : `Visible à partir de ${value}`;
   await logAction('Modification accès section', `${key} → ${label}`);
   updateNavVisibility();
   render();
@@ -1113,8 +1114,14 @@ async function loadAll(){
     DB.settings.sectionAccess = DB.settings.sectionAccess || {};
     let divSectionsMigrated = false;
     Object.keys(divisionSectionDefaults).forEach(key => {
-      if(DB.settings.sectionAccess[key] === undefined){
-        DB.settings.sectionAccess[key] = { rank:'hidden', divisions:[divisionSectionDefaults[key]] };
+      const cur = DB.settings.sectionAccess[key];
+      if(cur === undefined){
+        DB.settings.sectionAccess[key] = { rank:'none', divisions:[divisionSectionDefaults[key]] };
+        divSectionsMigrated = true;
+      } else if(cur && typeof cur === 'object' && cur.rank === 'hidden' && Array.isArray(cur.divisions) && cur.divisions.length === 1 && cur.divisions[0] === divisionSectionDefaults[key]){
+        // correctif : "hidden" bloquait aussi les membres de la division elle-même (bug de l'amorçage
+        // initial) — on corrige vers "none" pour que l'appartenance à la division redonne l'accès.
+        cur.rank = 'none';
         divSectionsMigrated = true;
       }
     });
@@ -4590,7 +4597,7 @@ function renderAcademyApplications(){
             <td class="mono">${new Date(a.date).toLocaleDateString('fr-FR')}</td>
             <td>${academyApplicationStatusTag(a.status)}</td>
             <td class="row-actions">
-              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('academyApplications','${a.id}')">Suppr.</button>
+              ${isChief() ? `<button class="icon-btn danger" onclick="event.stopPropagation();deleteAcademyApplication('${a.id}')">Suppr.</button>` : ''}
             </td>
           </tr>`).join('')}
       </tbody>
@@ -4635,6 +4642,7 @@ function openAcademyApplicationView(id){
       </div>
       <div class="modal-foot">
         <button class="btn" onclick="closeModal()">Fermer</button>
+        ${isChief() ? `<button class="btn btn-red" onclick="closeModal();deleteAcademyApplication('${a.id}')">Supprimer</button>` : ''}
       </div>
     </div>`;
   document.body.appendChild(backdrop);
@@ -4646,6 +4654,14 @@ async function setAcademyApplicationStatus(id, status){
   await saveKey('academyApplications');
   await logAction('Modification candidature Academy', `${a.firstName} ${a.lastName} — statut → ${status}`);
   render();
+}
+// Suppression réservée au Chief of Police (candidatures reçues via le formulaire public).
+async function deleteAcademyApplication(id){
+  if(!isChief()){
+    await infoDialog('Seul le Chief of Police peut supprimer une candidature.');
+    return;
+  }
+  await deleteEntity('academyApplications', id);
 }
 
 // ----- Formulaire public (accessible sans connexion au terminal) -----
@@ -4669,7 +4685,7 @@ function renderPublicAcademyApplicationForm(){
         <div class="pubform-field"><label>Nom *</label><input id="paf-lastName" type="text"></div>
         <div class="pubform-field"><label>Date de naissance</label><input id="paf-dob" type="text" placeholder="JJ/MM/AAAA"></div>
         <div class="pubform-field"><label>Téléphone *</label><input id="paf-phone" type="text"></div>
-        <div class="pubform-field"><label>Un autre moyen de te joindre si besoin ?</label><input id="paf-discord" type="text" placeholder="Ton identifiant Discord"></div>
+        <div class="pubform-field"><label>Un autre moyen de te joindre si besoin ?</label><input id="paf-discord" type="text" placeholder="Pseudo Discord, par exemple"></div>
         <div class="pubform-field"><label>Motivation *</label><textarea id="paf-motivation" rows="6" placeholder="Explique pourquoi tu souhaites rejoindre la Police Academy..."></textarea></div>
         <div id="paf-error" style="color:#d64545;font-size:12.5px;margin-bottom:12px;display:none;"></div>
         <button class="pubform-submit" onclick="submitPublicAcademyApplication()">Envoyer ma candidature</button>
@@ -6606,7 +6622,8 @@ function renderSettingsSectionsTab(){
           <td>
             <select onchange="setSectionAccessValue('${s.key}', this.value)">
               <option value="all" ${current==='all'?'selected':''}>Visible (tous grades)</option>
-              <option value="hidden" ${current==='hidden'?'selected':''}>Non visible</option>
+              <option value="none" ${current==='none'?'selected':''}>Divisions uniquement (aucun grade)</option>
+              <option value="hidden" ${current==='hidden'?'selected':''}>Non visible (personne, même les divisions)</option>
               ${rankOptions}
             </select>
           </td>

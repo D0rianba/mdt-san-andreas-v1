@@ -1521,6 +1521,31 @@ async function doLogout(){
   const pwField = document.getElementById('login-password');
   if(pwField) pwField.value = '';
 }
+// Déconnecte l'agent avec un message explicatif — utilisé quand son grade a été modifié par
+// quelqu'un d'autre pendant que sa session était active (voir checkRankStillCurrent).
+async function forceRelogin(message){
+  await doLogout();
+  const err = document.getElementById('login-error');
+  if(err) err.textContent = message;
+}
+// Le grade sert à l'affichage (barre du haut) et aux droits d'accès de toute la session, mais rien
+// ne pousse les changements en direct entre onglets/agents : si un autre agent modifie le grade de
+// la personne connectée pendant que sa session est déjà ouverte, rien ne s'actualise tout seul.
+// Cette vérification (relancée toutes les 60s, voir setInterval plus bas) compare son grade actuel
+// (Effectifs) à celui de sa session, et force une reconnexion en cas d'écart pour que l'affichage
+// et les droits restent à jour.
+async function checkRankStillCurrent(){
+  if(!SESSION) return;
+  try{
+    const res = await window.storage.get(K.officers, true);
+    const officers = res && res.value ? JSON.parse(res.value) : [];
+    const mine = officers.find(o => o.badge === SESSION.badge);
+    if(mine && mine.rank && mine.rank !== SESSION.rank){
+      await forceRelogin('Votre grade a été modifié — veuillez vous reconnecter.');
+    }
+  }catch(e){ /* vérification best-effort : une erreur réseau ne doit pas perturber la session en cours */ }
+}
+setInterval(checkRankStillCurrent, 60000);
 
 function enterApp(){
   document.getElementById('login-screen').style.display = 'none';
@@ -8206,8 +8231,16 @@ async function init(){
   // le mot de passe en clair n'est plus en mémoire à ce stade, donc on redemande une connexion
   // classique plutôt que d'afficher un écran de changement de mot de passe impossible à valider.
   if(sess && !sess.mustChangePassword){
-    SESSION = sess;
-    enterApp();
+    // Le grade a pu être modifié pendant que cette session était fermée : on vérifie tout de suite
+    // plutôt que d'attendre jusqu'à 60s (premier passage de checkRankStillCurrent) avant de forcer
+    // une reconnexion si besoin.
+    const mine = DB.officers.find(o => o.badge === sess.badge);
+    if(mine && mine.rank && mine.rank !== sess.rank){
+      document.getElementById('login-error').textContent = 'Votre grade a été modifié — veuillez vous reconnecter.';
+    } else {
+      SESSION = sess;
+      enterApp();
+    }
   }
 }
 init();

@@ -654,6 +654,22 @@
         <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">👮</span> <span class="nav-label">Effectifs</span> <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
         <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> <span class="nav-label">Rapports</span></div>
+        <div class="nav-item" id="nav-item-planning_detective" data-page="planning_detective" onclick="goPage('planning_detective')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-section-label" id="nav-section-asu">A.S.U.</div>
+        <div class="nav-item" id="nav-item-divrep_asu" data-page="divrep_asu" onclick="goPage('divrep_asu')"><span class="nav-icon">🚁</span> <span class="nav-label">Rapports A.S.U.</span></div>
+        <div class="nav-item" id="nav-item-planning_asu" data-page="planning_asu" onclick="goPage('planning_asu')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-section-label" id="nav-section-k9">K-9</div>
+        <div class="nav-item" id="nav-item-divrep_k9" data-page="divrep_k9" onclick="goPage('divrep_k9')"><span class="nav-icon">🐕</span> <span class="nav-label">Rapports K-9</span></div>
+        <div class="nav-item" id="nav-item-planning_k9" data-page="planning_k9" onclick="goPage('planning_k9')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-section-label" id="nav-section-academy">Academy</div>
+        <div class="nav-item" id="nav-item-divrep_pa" data-page="divrep_pa" onclick="goPage('divrep_pa')"><span class="nav-icon">🎓</span> <span class="nav-label">Rapports P.A.</span></div>
+        <div class="nav-item" id="nav-item-planning_pa" data-page="planning_pa" onclick="goPage('planning_pa')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-section-label" id="nav-section-td">Trafic Division</div>
+        <div class="nav-item" id="nav-item-divrep_td" data-page="divrep_td" onclick="goPage('divrep_td')"><span class="nav-icon">🚦</span> <span class="nav-label">Rapports T.D.</span></div>
+        <div class="nav-item" id="nav-item-planning_td" data-page="planning_td" onclick="goPage('planning_td')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-section-label" id="nav-section-swat">S.W.A.T.</div>
+        <div class="nav-item" id="nav-item-divrep_swat" data-page="divrep_swat" onclick="goPage('divrep_swat')"><span class="nav-icon">🛡</span> <span class="nav-label">Rapports S.W.A.T.</span></div>
+        <div class="nav-item" id="nav-item-planning_swat" data-page="planning_swat" onclick="goPage('planning_swat')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
         <div class="nav-section-label" id="nav-section-logs">Logs</div>
         <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">🗂️</span> <span class="nav-label">Logs</span></div>
         <div id="custom-nav-region"></div>
@@ -769,7 +785,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[] };
 // Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
 // chaque niveau est éditable (Chief of Police uniquement).
 const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
@@ -815,11 +831,36 @@ const SECTION_REGISTRY = [
   { key:'convocations', label:'Convocation', group:'Dossier', icon:'📨' },
   { key:'roster', label:'Effectifs', group:'Service', icon:'★' },
   { key:'detectiveReports', label:'Rapports Detective', group:'Detective', icon:'⚑' },
+  { key:'planning_detective', label:'Planning', group:'Detective', icon:'📅', division:'Detective Division' },
+  { key:'divrep_asu', label:'Rapports A.S.U.', group:'A.S.U.', icon:'🚁', division:'Air Support Division' },
+  { key:'planning_asu', label:'Planning', group:'A.S.U.', icon:'📅', division:'Air Support Division' },
+  { key:'divrep_k9', label:'Rapports K-9', group:'K-9', icon:'🐕', division:'K-9 Division' },
+  { key:'planning_k9', label:'Planning', group:'K-9', icon:'📅', division:'K-9 Division' },
+  { key:'divrep_pa', label:'Rapports P.A.', group:'Academy', icon:'🎓', division:'Police Academy' },
+  { key:'planning_pa', label:'Planning', group:'Academy', icon:'📅', division:'Police Academy' },
+  { key:'divrep_td', label:'Rapports T.D.', group:'Trafic Division', icon:'🚦', division:'Trafic Division' },
+  { key:'planning_td', label:'Planning', group:'Trafic Division', icon:'📅', division:'Trafic Division' },
+  { key:'divrep_swat', label:'Rapports S.W.A.T.', group:'S.W.A.T.', icon:'🛡', division:'Special Weapons And Tactics' },
+  { key:'planning_swat', label:'Planning', group:'S.W.A.T.', icon:'📅', division:'Special Weapons And Tactics' },
   { key:'logs', label:'Logs', group:'Logs', icon:'▥' },
 ];
+// Sections de rapports génériques par division (utilisées par renderDivisionReports/-Form) —
+// exclut Detective, qui a son propre système de rapports dédié (renderDetectiveReports).
+const DIVISION_REPORT_SECTIONS = [
+  { division:'Air Support Division', abbr:'ASU', reportsKey:'divrep_asu', reportsLabel:'Rapports A.S.U.' },
+  { division:'K-9 Division', abbr:'K9', reportsKey:'divrep_k9', reportsLabel:'Rapports K-9' },
+  { division:'Police Academy', abbr:'PA', reportsKey:'divrep_pa', reportsLabel:'Rapports P.A.' },
+  { division:'Trafic Division', abbr:'TD', reportsKey:'divrep_td', reportsLabel:'Rapports T.D.' },
+  { division:'Special Weapons And Tactics', abbr:'SWAT', reportsKey:'divrep_swat', reportsLabel:'Rapports S.W.A.T.' },
+];
+// Clés de section "Planning" (calendrier filtré par division) → division correspondante.
+const DIVISION_PLANNING_SECTIONS = {
+  planning_detective:'Detective Division', planning_asu:'Air Support Division', planning_k9:'K-9 Division',
+  planning_pa:'Police Academy', planning_td:'Trafic Division', planning_swat:'Special Weapons And Tactics',
+};
 // Collections où le champ "author" est le matricule seul (ex-diminutif de grade retiré par migration) —
 // partagé entre la migration au chargement et le renommage de matricule (changeOfficerBadge).
-const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos'];
+const AUTHOR_COLLECTIONS = ['citizens','reports','warrants','detectiveReports','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','penalCode','logs','bolos','divisionReports'];
 // RANK_ORDER référence toujours DB.ranks (même tableau) : le muter (push/splice/tri) suffit à
 // tenir à jour la hiérarchie partout dans l'app, il suffit ensuite de persister via saveKey('ranks').
 let RANK_ORDER = [...DEFAULT_RANKS];
@@ -974,7 +1015,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
-  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions',
+  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports',
   session:'session:current'
 };
 
@@ -1003,7 +1044,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -1088,6 +1129,23 @@ async function loadAll(){
   if(DB.settings.sectionAccess && typeof DB.settings.sectionAccess.detectiveReports === 'string'){
     DB.settings.sectionAccess.detectiveReports = { rank: DB.settings.sectionAccess.detectiveReports, divisions: ['Detective Division'] };
     await saveKey('settings');
+  }
+  // amorçage : les nouvelles sections "Rapports [division]" et "Planning" sont réservées par
+  // défaut aux membres de la division concernée (masquées pour les autres, jusqu'à ce qu'un
+  // administrateur élargisse l'accès depuis Paramètres > Gestion Section).
+  {
+    const divisionSectionDefaults = {};
+    DIVISION_REPORT_SECTIONS.forEach(s => { divisionSectionDefaults[s.reportsKey] = s.division; });
+    Object.keys(DIVISION_PLANNING_SECTIONS).forEach(key => { divisionSectionDefaults[key] = DIVISION_PLANNING_SECTIONS[key]; });
+    DB.settings.sectionAccess = DB.settings.sectionAccess || {};
+    let divSectionsMigrated = false;
+    Object.keys(divisionSectionDefaults).forEach(key => {
+      if(DB.settings.sectionAccess[key] === undefined){
+        DB.settings.sectionAccess[key] = { rank:'hidden', divisions:[divisionSectionDefaults[key]] };
+        divSectionsMigrated = true;
+      }
+    });
+    if(divSectionsMigrated) await saveKey('settings');
   }
   applyBranding();
   populateLoginRankOptions();
@@ -1475,18 +1533,10 @@ function updateNavVisibility(){
     const el = document.querySelector(`.nav-item[data-page="${s.key}"]`);
     if(el) el.style.display = allowed ? 'flex' : 'none';
   });
-  // Les libellés de section ne contenant qu'un seul item (Service, Detective, Logs) suivent la
-  // visibilité de cet item.
-  const toggleGroup = (itemKey, sectionId) => {
-    const item = document.querySelector(`.nav-item[data-page="${itemKey}"]`);
-    const section = document.getElementById(sectionId);
-    if(section) section.style.display = (item && item.style.display !== 'none') ? 'block' : 'none';
-  };
-  toggleGroup('roster', 'nav-section-roster');
-  toggleGroup('detectiveReports', 'nav-section-detective');
-  toggleGroup('logs', 'nav-section-logs');
-  // Groupes personnalisés : masqués si aucun de leurs items n'est visible pour l'agent connecté.
-  document.querySelectorAll('#custom-nav-region .nav-section-label').forEach(label => {
+  // Chaque libellé de groupe (Service, Detective, A.S.U., K-9, Academy, Trafic Division, S.W.A.T.,
+  // Logs, groupes personnalisés...) est masqué si aucun de ses items n'est visible pour l'agent
+  // connecté — générique, fonctionne pour un groupe à un seul item comme à plusieurs.
+  document.querySelectorAll('.nav-section-label').forEach(label => {
     let visibleCount = 0;
     let el = label.nextElementSibling;
     while(el && el.classList.contains('nav-item')){
@@ -1958,6 +2008,16 @@ function render(){
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
+  else if(currentPage === 'divisionReportForm') c.innerHTML = renderDivisionReportForm();
+  else if(DIVISION_REPORT_SECTIONS.some(s => s.reportsKey === currentPage)){
+    const def = DIVISION_REPORT_SECTIONS.find(s => s.reportsKey === currentPage);
+    c.innerHTML = renderDivisionReports(def.division, def.reportsLabel);
+  }
+  else if(DIVISION_PLANNING_SECTIONS[currentPage]){
+    const div = DIVISION_PLANNING_SECTIONS[currentPage];
+    const sectionDef = allSectionDefs().find(s => s.key === currentPage);
+    c.innerHTML = renderDivisionPlanning(div, sectionDef ? sectionDef.group : div);
+  }
   else if(currentPage === 'logs') c.innerHTML = renderLogs();
   else if(currentPage === 'users') c.innerHTML = renderUsers();
   else if(currentPage === 'settingsPage') c.innerHTML = renderSettingsPage();
@@ -2485,16 +2545,20 @@ function changeCalendarMonth(delta){
   calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+delta, 1);
   render();
 }
-function eventsOnDate(dateKey){
-  return DB.events.filter(e => e.date === dateKey).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+function eventsOnDate(dateKey, divisionFilter){
+  return DB.events.filter(e => e.date === dateKey && (!divisionFilter || e.division === divisionFilter)).sort((a,b) => (a.time||'').localeCompare(b.time||''));
 }
-function renderEvents(){
+// divisionFilter (optionnel) : limite le calendrier aux évènements de cette division (pages
+// "Planning"). La page "Évènements" du Terminal (sans filtre) continue d'afficher tous les
+// évènements, y compris ceux liés à une division — Planning n'en est qu'une vue focalisée.
+function renderEvents(divisionFilter, pageTitle, pageSub){
   const year = calendarMonth.getFullYear();
   const month = calendarMonth.getMonth();
   const firstDay = new Date(year, month, 1);
   const startOffset = (firstDay.getDay() + 6) % 7; // lundi = 0
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const todayKey = toDateKey(new Date());
+  const divArg = divisionFilter ? `'${escapeHtml(divisionFilter).replace(/'/g,"\\'")}'` : 'null';
 
   let cells = '';
   for(let i=0; i<startOffset; i++){
@@ -2503,12 +2567,12 @@ function renderEvents(){
   for(let day=1; day<=daysInMonth; day++){
     const dateObj = new Date(year, month, day);
     const dateKey = toDateKey(dateObj);
-    const dayEvents = eventsOnDate(dateKey);
+    const dayEvents = eventsOnDate(dateKey, divisionFilter);
     const isToday = dateKey === todayKey;
     const pills = dayEvents.slice(0,3).map(e => `<div class="cal-event-pill" title="${escapeHtml(e.title)}">${e.time ? escapeHtml(e.time)+' · ' : ''}${escapeHtml(e.title)}</div>`).join('');
     const more = dayEvents.length > 3 ? `<div class="cal-event-more">+${dayEvents.length-3} autre${dayEvents.length-3>1?'s':''}</div>` : '';
     cells += `
-      <div class="cal-cell${isToday?' cal-today':''}" onclick="openDayModal('${dateKey}')">
+      <div class="cal-cell${isToday?' cal-today':''}" onclick="openDayModal('${dateKey}',${divArg})">
         <div class="cal-daynum">${day}</div>
         ${pills}${more}
       </div>`;
@@ -2516,8 +2580,8 @@ function renderEvents(){
 
   return `
     <div class="page-head">
-      <div><div class="page-title">Évènements</div><div class="page-sub">CALENDRIER DU SERVICE · VUE MENSUELLE</div></div>
-      <button class="btn btn-primary" onclick="openEventModal(toDateKey(new Date()))">+ Nouvel évènement</button>
+      <div><div class="page-title">${escapeHtml(pageTitle||'Évènements')}</div><div class="page-sub">${escapeHtml(pageSub||'CALENDRIER DU SERVICE · VUE MENSUELLE')}</div></div>
+      <button class="btn btn-primary" onclick="openEventModal(toDateKey(new Date()), null, ${divArg})">+ Nouvel évènement</button>
     </div>
     <div class="cal-header">
       <button class="cal-nav-btn" onclick="changeCalendarMonth(-1)">‹</button>
@@ -2530,9 +2594,14 @@ function renderEvents(){
     </div>
   `;
 }
-function openDayModal(dateKey){
-  const dayEvents = eventsOnDate(dateKey);
+// Rend la page "Planning" d'une division : même calendrier que "Évènements", filtré sur cette division.
+function renderDivisionPlanning(division, groupLabel){
+  return renderEvents(division, (groupLabel||division) + ' — Planning', 'CALENDRIER DE LA DIVISION · VUE MENSUELLE');
+}
+function openDayModal(dateKey, divisionFilter){
+  const dayEvents = eventsOnDate(dateKey, divisionFilter);
   const dateLabel = new Date(dateKey+'T00:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const divArg = divisionFilter ? `'${escapeHtml(divisionFilter).replace(/'/g,"\\'")}'` : 'null';
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
@@ -2543,7 +2612,7 @@ function openDayModal(dateKey){
         ${dayEvents.length ? dayEvents.map(e => `
           <div class="event-list-item">
             <div>
-              <div style="color:var(--text);font-weight:500;font-size:13.5px;">${e.time ? `<span class="mono" style="color:var(--amber);margin-right:6px;">${escapeHtml(e.time)}</span>` : ''}${escapeHtml(e.title)}</div>
+              <div style="color:var(--text);font-weight:500;font-size:13.5px;">${e.time ? `<span class="mono" style="color:var(--amber);margin-right:6px;">${escapeHtml(e.time)}</span>` : ''}${escapeHtml(e.title)}${e.division ? ` <span class="tag tag-amber" style="margin-left:4px;">${escapeHtml(e.division)}</span>` : ''}</div>
               ${e.description ? `<div style="color:var(--text-dim);font-size:12.5px;margin-top:3px;line-height:1.4;">${escapeHtml(e.description)}</div>` : ''}
               <div class="helper-text" style="margin-top:4px;">Ajouté par ${escapeHtml(e.author)}</div>
             </div>
@@ -2555,22 +2624,25 @@ function openDayModal(dateKey){
       </div>
       <div class="modal-foot">
         <button class="btn" onclick="closeModal()">Fermer</button>
-        <button class="btn btn-primary" onclick="closeModal();openEventModal('${dateKey}')">+ Ajouter un évènement</button>
+        <button class="btn btn-primary" onclick="closeModal();openEventModal('${dateKey}', null, ${divArg})">+ Ajouter un évènement</button>
       </div>
     </div>`;
   document.body.appendChild(backdrop);
 }
-function openEventModal(dateKey, id){
+function openEventModal(dateKey, id, presetDivision){
   const existing = id ? DB.events.find(e => e.id === id) : null;
+  const divisionOptions = [{ value:'', label:'Général (visible par tous)' }].concat(DIVISIONS.map(d => ({ value:d, label:d })));
   showModal({
     title: existing ? "Modifier l'évènement" : 'Nouvel évènement',
     fields: [
       { key:'title', label:'Titre' },
       { key:'date', label:'Date', type:'date' },
       { key:'time', label:'Heure', type:'time' },
+      { key:'division', label:'Division', type:'select', options:divisionOptions,
+        helper:"Un évènement lié à une division reste visible dans le calendrier général, et apparaît en plus dans le Planning de cette division." },
       { key:'description', label:'Description', type:'textarea' },
     ],
-    initial: existing || { date: dateKey },
+    initial: existing || { date: dateKey, division: presetDivision || '' },
     onSubmit: async (data) => {
       if(existing) Object.assign(existing, data);
       else DB.events.push({ id: uid('evt'), ...data, createdAt: nowISO(), author: SESSION.callsign });
@@ -5440,6 +5512,7 @@ async function changeOfficerBadge(oldBadge, newBadge){
     ['arrestReports','responsibleBadge'], ['detectiveReports','responsibleBadge'],
     ['complaints','takenByBadge'], ['convocations','authorBadge'],
     ['reports','dispatcherBadge'], ['reports','supervisorBadge'],
+    ['divisionReports','responsibleBadge'],
   ];
   singleBadgeFields.forEach(([col, field]) => {
     (DB[col]||[]).forEach(item => { if(item[field] === oldBadge) item[field] = newBadge; });
@@ -5551,6 +5624,139 @@ async function deleteOfficer(badge){
   await saveKey('dispatchAssignments');
   await logAction('Suppression effectif', `${officer.name} (${officer.badge})`);
   render();
+}
+
+/* ===================== RAPPORTS PAR DIVISION (A.S.U., K-9, Academy, Trafic Division, S.W.A.T.) =====================
+   Système générique réutilisé pour les 5 divisions ci-dessus (Detective a son propre système dédié). */
+function nextDivisionReportNumber(division){
+  const def = DIVISION_REPORT_SECTIONS.find(s => s.division === division);
+  const abbr = def ? def.abbr : 'DIV';
+  const year = new Date().getFullYear();
+  const countThisYear = DB.divisionReports.filter(r => r.division === division && r.reportNumber && r.reportNumber.includes('-'+year+'-')).length + 1;
+  return `${abbr}-${year}-${String(countThisYear).padStart(4,'0')}`;
+}
+let divisionReportSearch = {};
+function renderDivisionReports(division, sectionLabel){
+  const search = (divisionReportSearch[division] || '').toLowerCase();
+  const list = DB.divisionReports
+    .filter(r => r.division === division)
+    .filter(r => (r.title+' '+r.reportNumber+' '+officerSearchTokens(r.author)+' '+officerSearchTokens(r.responsibleBadge)).toLowerCase().includes(search))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">${escapeHtml(sectionLabel)}</div></div>
+      <button class="btn btn-primary" onclick="openNewDivisionReportPage('${escapeHtml(division)}')">+ Nouveau rapport</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un titre, un agent, un n° de rapport..." value="${escapeHtml(divisionReportSearch[division]||'')}" oninput="divisionReportSearch['${escapeHtml(division)}']=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>N°</th><th>Titre</th><th>Rédigé par</th><th>Date</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(r => {
+          const responsible = DB.officers.find(o => o.badge === r.responsibleBadge);
+          return `
+          <tr style="cursor:pointer;" onclick="openEditDivisionReportPage('${r.id}')">
+            <td class="mono row-name">${escapeHtml(r.reportNumber)}</td>
+            <td>${escapeHtml(r.title)}</td>
+            <td>${responsible ? escapeHtml(responsible.name) : '<span class="helper-text">—</span>'}</td>
+            <td class="mono">${r.dateTime ? new Date(r.dateTime).toLocaleDateString('fr-FR') : '—'}</td>
+            <td>${r.status==='Clôturé' ? '<span class="tag tag-green">Clôturé</span>' : '<span class="tag tag-amber">Ouvert</span>'}</td>
+            <td class="row-actions">
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('divisionReports','${r.id}')">Suppr.</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">📋</div>Aucun rapport enregistré.</div>`}
+  `;
+}
+let divisionReportFormDraft = null;
+function openNewDivisionReportPage(division){
+  divisionReportFormDraft = {
+    id: null, division, title: '', dateTime: new Date().toISOString().slice(0,16),
+    content: '', responsibleBadge: SESSION.badge, status: 'Ouvert'
+  };
+  currentPage = 'divisionReportForm';
+  render();
+}
+function openEditDivisionReportPage(id){
+  const existing = DB.divisionReports.find(r => r.id === id);
+  if(!existing) return;
+  divisionReportFormDraft = {
+    id: existing.id, division: existing.division, title: existing.title || '',
+    dateTime: existing.dateTime || '', content: existing.content || '',
+    responsibleBadge: existing.responsibleBadge || SESSION.badge, status: existing.status || 'Ouvert'
+  };
+  currentPage = 'divisionReportForm';
+  render();
+}
+function renderDivisionReportForm(){
+  if(!divisionReportFormDraft) return `<div class="empty-state">Aucun formulaire ouvert.</div>`;
+  const d = divisionReportFormDraft;
+  const def = DIVISION_REPORT_SECTIONS.find(s => s.division === d.division);
+  const backKey = def ? def.reportsKey : 'dashboard';
+  const divisionMembers = DB.officers.filter(o => Array.isArray(o.divisions) && o.divisions.includes(d.division));
+  const officerPool = divisionMembers.length ? divisionMembers : DB.officers; // repli si personne n'est encore affecté à la division
+  const officerOptions = officerPool.map(o => `<option value="${escapeHtml(o.badge)}" ${d.responsibleBadge===o.badge?'selected':''}>[${escapeHtml(o.badge)}] ${escapeHtml(o.name)}</option>`).join('');
+  return `
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="icon-btn" onclick="goPage('${backKey}')" title="Retour" style="font-size:16px;">←</button>
+        <div><div class="page-title">${d.id ? 'Modifier le rapport' : 'Nouveau rapport'}</div>${def ? `<div class="page-sub">${escapeHtml(def.reportsLabel)}</div>` : ''}</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Titre :</label>
+      <input type="text" value="${escapeHtml(d.title)}" placeholder="Ex. Intervention du..." oninput="divisionReportFormDraft.title=this.value">
+    </div>
+
+    <div class="field" style="max-width:280px;">
+      <label>Date :</label>
+      <input type="datetime-local" value="${escapeHtml(d.dateTime)}" onchange="divisionReportFormDraft.dateTime=this.value">
+    </div>
+
+    <div class="field">
+      <label>Contenu :</label>
+      <textarea rows="10" placeholder="Détails du rapport..." oninput="divisionReportFormDraft.content=this.value">${escapeHtml(d.content)}</textarea>
+    </div>
+
+    <div class="field" style="max-width:420px;">
+      <label>Rédigé par :</label>
+      <select onchange="divisionReportFormDraft.responsibleBadge=this.value">${officerOptions || '<option disabled>Aucun agent enregistré</option>'}</select>
+    </div>
+
+    <div class="field" style="max-width:220px;">
+      <label>Statut :</label>
+      <select onchange="divisionReportFormDraft.status=this.value">
+        <option value="Ouvert" ${d.status==='Ouvert'?'selected':''}>Ouvert</option>
+        <option value="Clôturé" ${d.status==='Clôturé'?'selected':''}>Clôturé</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:16px;" onclick="submitDivisionReport()">${d.id ? 'Enregistrer' : 'Créer'}</button>
+  `;
+}
+async function submitDivisionReport(){
+  const d = divisionReportFormDraft;
+  if(!d.title.trim()){ await infoDialog('Le titre est requis.'); return; }
+  if(d.id){
+    const existing = DB.divisionReports.find(r => r.id === d.id);
+    Object.assign(existing, { title:d.title, dateTime:d.dateTime, content:d.content, responsibleBadge:d.responsibleBadge, status:d.status });
+  } else {
+    DB.divisionReports.push({
+      id: uid('drep'), reportNumber: nextDivisionReportNumber(d.division), division: d.division,
+      title: d.title, dateTime: d.dateTime, content: d.content, responsibleBadge: d.responsibleBadge,
+      status: d.status, date: nowISO(), author: SESSION.badge
+    });
+  }
+  await saveKey('divisionReports');
+  await logAction(d.id ? 'Modification rapport de division' : 'Création rapport de division', `${d.division} — ${d.title}`);
+  const def = DIVISION_REPORT_SECTIONS.find(s => s.division === d.division);
+  divisionReportFormDraft = null;
+  goPage(def ? def.reportsKey : 'dashboard');
 }
 
 /* ===================== LOGS ===================== */
@@ -6412,7 +6618,7 @@ async function resetRankLogo(rank){
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
   penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
-  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation'
+  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation', divisionReports:'Rapport de division'
 };
 async function deleteEntity(collection, id){
   const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');

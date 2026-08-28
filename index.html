@@ -845,6 +845,31 @@ function hasRankAtLeast(rank){
   if(idx === -1) return false; // seuil introuvable (grade renommé/supprimé) : accès refusé par sécurité
   return RANK_ORDER.indexOf(SESSION.rank) >= idx;
 }
+// Le grade le plus élevé de la hiérarchie (Chief of Police par défaut, ou son équivalent si
+// renommé) : seul grade autorisé à modifier le grade de n'importe qui, sans restriction.
+function isTopRank(rank){
+  return RANK_ORDER.length > 0 && rank === RANK_ORDER[RANK_ORDER.length - 1];
+}
+// Un agent ne peut modifier le grade d'un autre agent que s'il remplit le seuil général requis
+// (captainTierMinRank) ET qu'il est strictement au-dessus de son grade actuel — sauf le grade le
+// plus élevé (Chief of Police), qui peut modifier le grade de n'importe qui.
+function canEditOfficerRank(target){
+  if(!SESSION || !target) return false;
+  if(!hasRankAtLeast(DB.settings.captainTierMinRank)) return false;
+  if(isTopRank(SESSION.rank)) return true;
+  const myLevel = RANK_ORDER.indexOf(SESSION.rank);
+  const targetLevel = RANK_ORDER.indexOf(target.rank);
+  if(myLevel === -1 || targetLevel === -1) return false;
+  return myLevel > targetLevel;
+}
+// Grades qu'on est autorisé à attribuer : strictement en dessous du sien — sauf le grade le plus
+// élevé (Chief of Police), qui peut attribuer n'importe quel grade, y compris le sien.
+function assignableRanksForSession(){
+  if(isTopRank(SESSION.rank)) return [...RANK_ORDER];
+  const myLevel = RANK_ORDER.indexOf(SESSION.rank);
+  if(myLevel === -1) return [];
+  return RANK_ORDER.filter((r, idx) => idx < myLevel);
+}
 function currentOfficer(){
   return SESSION ? DB.officers.find(o => o.badge === SESSION.badge) : null;
 }
@@ -5668,7 +5693,9 @@ function renderRoster(){
     <table>
       <thead><tr><th>Matricule</th><th>Nom</th><th>Grade</th><th>Divisions</th><th>Dernière connexion</th>${showActionsCol ? '<th></th>' : ''}</tr></thead>
       <tbody>
-        ${list.map(o => `
+        ${list.map(o => {
+          const canEditRank = canEditOfficerRank(o);
+          return `
           <tr style="cursor:pointer;" onclick="openOfficerStatsModal('${o.badge}')">
             <td class="mono row-name">${escapeHtml(o.badge)}</td>
             <td>${escapeHtml(o.name)}</td>
@@ -5677,13 +5704,15 @@ function renderRoster(){
             <td class="mono">${fmtDate(o.lastSeen)}</td>
             ${showActionsCol ? `
             <td class="row-actions">
+              ${canEditRank ? `<button class="icon-btn" onclick="event.stopPropagation();openChangeOfficerRankModal('${o.badge}')">Grade</button>` : ''}
               ${canEditDivision ? `<button class="icon-btn" onclick="event.stopPropagation();openDivisionModal('${o.badge}')">Divisions</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openRenameOfficerModal('${o.badge}')">Nom</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openIbanModal('${o.badge}')">IBAN</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn danger" onclick="event.stopPropagation();deleteOfficer('${o.badge}')">Suppr.</button>` : ''}
             </td>` : ''}
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
   `;
@@ -6128,6 +6157,73 @@ function openDivisionModal(badge){
       render();
     }
   });
+}
+
+// Modifie le grade d'un agent depuis Effectifs. Un agent ne peut modifier que le grade d'agents
+// strictement en dessous du sien, et ne peut lui attribuer qu'un grade strictement en dessous du
+// sien — sauf le grade le plus élevé (Chief of Police), qui peut modifier n'importe qui vers
+// n'importe quel grade (voir canEditOfficerRank / assignableRanksForSession).
+function openChangeOfficerRankModal(badge){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  if(!canEditOfficerRank(officer)){
+    infoDialog("Tu ne peux pas modifier le grade de cet agent.");
+    return;
+  }
+  const options = assignableRanksForSession();
+  if(!options.length){
+    infoDialog("Aucun grade disponible à attribuer.");
+    return;
+  }
+  showModal({
+    title: 'Modifier le grade — ' + officer.name,
+    fields: [{ key:'rank', label:'Nouveau grade', type:'select', options: options.map(r => ({ value:r, label:r })) }],
+    initial: { rank: options.includes(officer.rank) ? officer.rank : options[options.length-1] },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => { await changeOfficerRank(badge, data.rank); }
+  });
+}
+async function changeOfficerRank(badge, newRank){
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  // double vérification avant écriture : ni le droit d'agir sur cette cible, ni le grade choisi
+  // (doit rester strictement en dessous du sien, sauf pour le grade le plus élevé) ne sont
+  // garantis d'être encore valides au moment de la soumission.
+  if(!canEditOfficerRank(officer)){ await infoDialog("Tu ne peux pas modifier le grade de cet agent."); return; }
+  if(!RANK_ORDER.includes(newRank)){ await infoDialog('Grade invalide.'); return; }
+  if(!assignableRanksForSession().includes(newRank)){ await infoDialog("Tu ne peux pas attribuer un grade égal ou supérieur au tien."); return; }
+  if(newRank === officer.rank) return;
+
+  // En mode Supabase, le grade sert aussi à l'authentification/aux droits de l'agent — sans
+  // synchroniser son compte, le changement serait écrasé à sa prochaine connexion (syncOfficerRecord).
+  if(_supabaseConfigured){
+    try{
+      const myPassword = await requireSessionPassword();
+      const { error } = await _sb.rpc('mdt_update_officer_rank', {
+        p_actor_matricule: SESSION.badge, p_actor_password: myPassword,
+        p_target_matricule: badge, p_new_rank: newRank
+      });
+      if(error) throw error;
+    }catch(e){
+      await infoDialog(describeAuthError(e));
+      return;
+    }
+  }
+
+  const oldRank = officer.rank;
+  officer.rank = newRank;
+  await saveKey('officers');
+
+  if(SESSION && SESSION.badge === badge){
+    SESSION.rank = newRank;
+    await saveSession(SESSION);
+    const tbUserName = document.getElementById('tb-user-name');
+    if(tbUserName) tbUserName.textContent = SESSION.rank + ' ' + SESSION.name;
+    updateTbRankLogo();
+  }
+
+  await logAction('Modification grade agent', `${badge} — "${oldRank}" → "${newRank}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
+  render();
 }
 
 function openChangeBadgeModal(oldBadge){

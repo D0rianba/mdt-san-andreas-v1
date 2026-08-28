@@ -1908,9 +1908,15 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
     closeModal();
   };
 }
+// Certaines actions ouvrent une confirmation de mot de passe (requireSessionPassword) par-dessus
+// une fenêtre déjà ouverte (ex. Modifier le grade) : deux éléments partagent alors l'id
+// "active-modal". getElementById() ne renvoyait que le premier (celui du dessous), donc "Confirmer"
+// semblait ne rien faire — la fenêtre du dessus restait bloquée à l'écran. On ferme désormais la
+// dernière ouverte (celle du dessus, la seule visible/cliquable), ce qui fonctionne aussi bien pour
+// une fenêtre seule que pour des fenêtres imbriquées.
 function closeModal(){
-  const m = document.getElementById('active-modal');
-  if(m) m.remove();
+  const modals = document.querySelectorAll('#active-modal');
+  if(modals.length) modals[modals.length - 1].remove();
 }
 
 /* Champ d'import d'image (type 'image-upload' de showModal). Par défaut, recadre en carré parfait

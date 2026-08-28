@@ -755,7 +755,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], internalConvocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[], academyApplications:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], internalConvocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[], academyApplications:[], serviceHoursArchives:[] };
 // Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
 // chaque niveau est éditable (Chief of Police uniquement).
 const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
@@ -991,6 +991,7 @@ const K = {
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
   ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports', internalConvocations:'db:internalConvocations', academyApplications:'db:academyApplications',
+  serviceHoursArchives:'db:serviceHoursArchives',
   session:'session:current'
 };
 
@@ -1019,7 +1020,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports','internalConvocations','academyApplications']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports','internalConvocations','academyApplications','serviceHoursArchives']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -5753,14 +5754,25 @@ async function saveMyHours(){
 // Vue d'ensemble (Captain et plus, seuil réglable depuis Paramètres > Gestion Section) des heures
 // de service déclarées par chaque agent, avec salaire calculé à partir du taux horaire de son
 // grade actuel (Paramètres > Grades), et son IBAN pour le versement.
-function renderServiceHours(){
-  if(!hasSectionAccess('serviceHours')) return `<div class="empty-state"><div class="em-icon">💰</div>Accès réservé.</div>`;
-  const list = [...DB.officers].sort((a,b) => a.badge.localeCompare(b.badge, undefined, {numeric:true}));
+// Seuil sous lequel un total d'heures déclarées est mis en évidence en orange (semaine trop
+// courte), en plus du rouge réservé aux agents à 0 heure.
+const LOW_WEEKLY_HOURS_THRESHOLD = 10;
+function totalHoursTagClass(total){
+  if(!total) return 'tag-red';
+  if(total < LOW_WEEKLY_HOURS_THRESHOLD) return 'tag-amber';
+  return '';
+}
+function serviceHoursRowsFromOfficers(officers){
+  return officers.map(o => {
+    const hours = { ...defaultWeeklyHours(), ...(o.weeklyHours||{}) };
+    const total = WEEK_DAYS.reduce((sum, d) => sum + (Number(hours[d.key]) || 0), 0);
+    const rate = hourlyRateForRank(o.rank);
+    return { badge:o.badge, name:o.name, rank:o.rank, hours, total, rate, salary: total * rate, iban: o.iban || '' };
+  });
+}
+function serviceHoursTableHtml(rows){
+  if(!rows.length) return `<div class="empty-state"><div class="em-icon">💰</div>Aucun agent enregistré.</div>`;
   return `
-    <div class="page-head">
-      <div><div class="page-title">Heures de service</div><div class="page-sub">HEURES DÉCLARÉES · SALAIRE PAR GRADE</div></div>
-    </div>
-    ${list.length ? `
     <table>
       <thead>
         <tr>
@@ -5770,24 +5782,110 @@ function renderServiceHours(){
         </tr>
       </thead>
       <tbody>
-        ${list.map(o => {
-          const hours = { ...defaultWeeklyHours(), ...(o.weeklyHours||{}) };
-          const total = WEEK_DAYS.reduce((sum, d) => sum + (Number(hours[d.key]) || 0), 0);
-          const rate = hourlyRateForRank(o.rank);
-          const salary = total * rate;
+        ${rows.map(r => {
+          const cls = totalHoursTagClass(r.total);
           return `
           <tr>
-            <td class="mono row-name">${escapeHtml(o.badge)}</td>
-            <td>${escapeHtml(o.name)}</td>
-            ${WEEK_DAYS.map(d => `<td class="mono">${escapeHtml(String(hours[d.key] ?? 0))}</td>`).join('')}
-            <td class="mono">${!total ? `<span class="tag tag-red">0</span>` : total}</td>
-            <td class="mono">${fmtMoney(salary)}</td>
-            <td class="mono">${o.iban ? `${escapeHtml(o.iban)} <button class="icon-btn" title="Copier" onclick="copyIban('${escapeHtml(o.iban).replace(/'/g,"\\'")}')">⧉</button>` : '<span class="helper-text">—</span>'}</td>
+            <td class="mono row-name">${escapeHtml(r.badge)}</td>
+            <td>${escapeHtml(r.name)}</td>
+            ${WEEK_DAYS.map(d => `<td class="mono">${escapeHtml(String(r.hours[d.key] ?? 0))}</td>`).join('')}
+            <td class="mono">${cls ? `<span class="tag ${cls}">${r.total}</span>` : r.total}</td>
+            <td class="mono">${fmtMoney(r.salary)}</td>
+            <td class="mono">${r.iban ? `${escapeHtml(r.iban)} <button class="icon-btn" title="Copier" onclick="copyIban('${escapeHtml(r.iban).replace(/'/g,"\\'")}')">⧉</button>` : '<span class="helper-text">—</span>'}</td>
           </tr>`;
         }).join('')}
       </tbody>
-    </table>` : `<div class="empty-state"><div class="em-icon">💰</div>Aucun agent enregistré.</div>`}
+    </table>`;
+}
+// Calcule année ISO + numéro de semaine ISO (semaine du lundi au dimanche) pour l'étiquette
+// d'archive ("2026 - Semaine 12"), indépendamment du fuseau/de la locale.
+function isoWeekInfo(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+function renderServiceHours(){
+  if(!hasSectionAccess('serviceHours')) return `<div class="empty-state"><div class="em-icon">💰</div>Accès réservé.</div>`;
+  const list = [...DB.officers].sort((a,b) => a.badge.localeCompare(b.badge, undefined, {numeric:true}));
+  const rows = serviceHoursRowsFromOfficers(list);
+  const weekTotalHours = rows.reduce((s,r) => s + r.total, 0);
+  const weekTotalSalary = rows.reduce((s,r) => s + r.salary, 0);
+  const archives = DB.serviceHoursArchives || [];
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Heures de service</div><div class="page-sub">HEURES DÉCLARÉES · SALAIRE PAR GRADE</div></div>
+    </div>
+    ${serviceHoursTableHtml(rows)}
+
+    <div class="page-head" style="margin-top:26px;">
+      <div><div class="page-title" style="font-size:18px;">Cette semaine</div></div>
+    </div>
+    <div class="stat-card" style="max-width:320px;">
+      <div>Nombre d'heures : ${weekTotalHours} heures</div>
+      <div>Salaires totaux : ${fmtMoney(weekTotalSalary)}</div>
+      ${isAdmin() ? `<button class="btn" style="background:var(--green);color:#04231A;border-color:var(--green);margin-top:12px;" onclick="closeServiceWeek()">Clôturer la semaine</button>` : ''}
+    </div>
+
+    ${archives.length ? `
+    <div class="page-head" style="margin-top:26px;">
+      <div><div class="page-title" style="font-size:18px;">Semaines précédentes</div></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      ${archives.map(a => `
+        <div class="stat-card" style="cursor:pointer;max-width:230px;" onclick="openServiceHoursArchiveModal('${a.id}')">
+          <div class="row-name" style="margin-bottom:6px;">${escapeHtml(a.label)}</div>
+          <div class="helper-text">Nombre d'heures : ${a.totalHours} heures</div>
+          <div class="helper-text">Salaires totaux : ${fmtMoney(a.totalSalary)}</div>
+        </div>`).join('')}
+    </div>` : ''}
   `;
+}
+// Réinitialise les heures de service de tous les agents et archive un instantané (heures/jour,
+// salaire, IBAN) de la semaine sous forme d'étiquette consultable dans "Semaines précédentes".
+async function closeServiceWeek(){
+  if(!isAdmin()) return;
+  if(!DB.officers.length){ await infoDialog('Aucun agent enregistré.'); return; }
+  const ok = await confirmDialog("Clôturer la semaine ? Les heures de service de tous les agents seront archivées puis réinitialisées à zéro.");
+  if(!ok) return;
+  const rows = serviceHoursRowsFromOfficers(DB.officers);
+  const { year, week } = isoWeekInfo(new Date());
+  const archive = {
+    id: uid('svhw'),
+    label: `${year} - Semaine ${week}`,
+    closedAt: nowISO(),
+    closedBy: SESSION.callsign,
+    totalHours: rows.reduce((s,r) => s + r.total, 0),
+    totalSalary: rows.reduce((s,r) => s + r.salary, 0),
+    rows,
+  };
+  DB.serviceHoursArchives.push(archive);
+  DB.officers.forEach(o => { o.weeklyHours = defaultWeeklyHours(); });
+  await saveKey('serviceHoursArchives');
+  await saveKey('officers');
+  await logAction('Clôture semaine (heures de service)', archive.label);
+  render();
+}
+function openServiceHoursArchiveModal(id){
+  const archive = (DB.serviceHoursArchives||[]).find(a => a.id === id);
+  if(!archive) return;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:min(1100px,95vw);max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(archive.label)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        ${serviceHoursTableHtml(archive.rows)}
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeModal(); });
 }
 function copyIban(iban){
   if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(iban);

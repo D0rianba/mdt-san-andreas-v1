@@ -1894,14 +1894,21 @@ function showModal({title, fields, initial={}, onSubmit, submitLabel='Enregistre
     </div>`;
   document.body.appendChild(backdrop);
 
-  document.getElementById('modal-submit-btn').onclick = async () => {
+  // backdrop.querySelector (et non document.getElementById) : quand une confirmation de mot de
+  // passe (requireSessionPassword) s'ouvre par-dessus une fenêtre déjà affichée, les deux se
+  // retrouvent avec les mêmes id ("modal-submit-btn", "mf-<champ>"). document.getElementById()
+  // renvoyait alors systématiquement le PREMIER élément trouvé dans la page — celui de la fenêtre
+  // du dessous, invisible — donc le bouton "Confirmer" réellement affiché n'avait jamais de clic
+  // branché dessus, et cliquer dessus ne faisait rigoureusement rien. backdrop.querySelector reste
+  // cantonné à cette fenêtre précise, quel que soit le nombre de fenêtres imbriquées.
+  backdrop.querySelector('#modal-submit-btn').onclick = async () => {
     const data = {};
     fields.forEach(f => {
       if(f.type === 'multiselect'){
         const checked = backdrop.querySelectorAll(`[data-multiselect="${f.key}"] input[type="checkbox"]:checked`);
         data[f.key] = Array.from(checked).map(c => c.value);
       } else {
-        data[f.key] = document.getElementById('mf-'+f.key).value.trim();
+        data[f.key] = backdrop.querySelector('#mf-'+f.key).value.trim();
       }
     });
     await onSubmit(data);

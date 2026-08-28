@@ -5657,6 +5657,7 @@ function renderRoster(){
               ${canEditDivision ? `<button class="icon-btn" onclick="event.stopPropagation();openDivisionModal('${o.badge}')">Divisions</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openChangeBadgeModal('${o.badge}')">Matricule</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openRenameOfficerModal('${o.badge}')">Nom</button>` : ''}
+              ${canManageOfficer ? `<button class="icon-btn" onclick="event.stopPropagation();openIbanModal('${o.badge}')">IBAN</button>` : ''}
               ${canManageOfficer ? `<button class="icon-btn danger" onclick="event.stopPropagation();deleteOfficer('${o.badge}')">Suppr.</button>` : ''}
             </td>` : ''}
           </tr>`).join('')}
@@ -6107,6 +6108,29 @@ async function renameOfficerName(badge, newName){
   }
 
   await logAction('Modification nom agent', `${badge} — "${oldName}" renommé en "${newName}"` + (_supabaseConfigured ? ' (compte Supabase synchronisé)' : ''));
+  render();
+}
+
+// Ouvre le formulaire d'association d'un IBAN à un agent (fiche roster — Effectifs).
+function openIbanModal(badge){
+  if(!isAdmin()) return;
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  showModal({
+    title: 'IBAN — ' + officer.badge,
+    fields: [{ key:'iban', label:'IBAN', placeholder:'Ex. FR76 XXXX XXXX XXXX XXXX XXXX XXX' }],
+    initial: { iban: officer.iban || '' },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => { await saveOfficerIban(badge, (data.iban||'').trim()); }
+  });
+}
+async function saveOfficerIban(badge, iban){
+  if(!isAdmin()) return;
+  const officer = DB.officers.find(o => o.badge === badge);
+  if(!officer) return;
+  officer.iban = iban;
+  await saveKey('officers');
+  await logAction('Association IBAN', `${badge}${iban ? ' — IBAN mis à jour' : ' — IBAN retiré'}`);
   render();
 }
 

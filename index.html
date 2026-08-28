@@ -420,6 +420,17 @@
   .pubdoc-evidence img{width:90px;height:90px;object-fit:cover;border-radius:4px;border:1px solid #e2e5ea;}
   .pubdoc-notfound{max-width:520px;margin:80px auto;text-align:center;color:#3a4250;}
 
+  /* ===== FORMULAIRE PUBLIC (candidature Academy) ===== */
+  .pubform-field{margin-bottom:16px;}
+  .pubform-field label{display:block;font-weight:600;font-size:13px;color:#1c2026;margin-bottom:5px;}
+  .pubform-field input, .pubform-field textarea{width:100%;border:1px solid #d5d9e0;border-radius:4px;padding:9px 11px;font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;color:#1c2026;background:#fff;box-sizing:border-box;}
+  .pubform-field textarea{resize:vertical;font-family:'IBM Plex Sans',sans-serif;}
+  .pubform-field input:focus, .pubform-field textarea:focus{outline:none;border-color:#4C8DFF;}
+  .pubform-submit{background:#1a9f5c;color:#fff;border:none;border-radius:4px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;}
+  .pubform-submit:hover{background:#158049;}
+  .pubform-submit:disabled{background:#9ac9ac;cursor:default;}
+  .pubform-success{text-align:center;padding:40px 20px;}
+
   /* ===== AVIS DE RECHERCHE PUBLIC (mandat) ===== */
   .wanted-poster{max-width:820px;margin:0 auto;background:#ffffff;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12);padding:40px 46px 34px;}
   .wanted-head{display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:center;}
@@ -744,7 +755,7 @@
 const CUSTOM_ORG_MAP_URL = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
 
 /* ===================== STATE ===================== */
-let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], internalConvocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[] };
+let DB = { citizens:[], vehicles:[], reports:[], warrants:[], officers:[], bolos:[], penalCode:[], detectiveReports:[], logs:[], events:[], dispatch:[], patrolUnits:[], patrolHistory:[], serviceVehicles:[], organizations:[], orgMapImage:null, arrestReports:[], seizures:[], ppas:[], complaints:[], convocations:[], internalConvocations:[], dispatchAssignments:{ dispatcherBadge:'', supervisorBadge:'' }, ranks:[], settings:{}, defcon:null, divisions:[], divisionReports:[], academyApplications:[] };
 // Les 5 niveaux Defcon et leurs titres sont fixes ; seule la description (protocole/consignes) de
 // chaque niveau est éditable (Chief of Police uniquement).
 const DEFCON_TITLES = { 5:'Normal', 4:'Vigilance accrue', 3:'Alerte', 2:'Urgence majeure', 1:'Crise totale' };
@@ -797,6 +808,7 @@ const SECTION_REGISTRY = [
   { key:'divrep_k9', label:'Rapports K-9', group:'K-9', icon:'🐕', division:'K-9 Division' },
   { key:'planning_k9', label:'Planning', group:'K-9', icon:'📅', division:'K-9 Division' },
   { key:'divrep_pa', label:'Rapports P.A.', group:'Academy', icon:'🎓', division:'Police Academy' },
+  { key:'academyApplications', label:'Candidatures reçues', group:'Academy', icon:'📥', division:'Police Academy' },
   { key:'planning_pa', label:'Planning', group:'Academy', icon:'📅', division:'Police Academy' },
   { key:'divrep_td', label:'Rapports T.D.', group:'Trafic Division', icon:'🚦', division:'Trafic Division' },
   { key:'planning_td', label:'Planning', group:'Trafic Division', icon:'📅', division:'Trafic Division' },
@@ -975,7 +987,7 @@ const K = {
   patrolUnits:'db:patrolUnits', patrolHistory:'db:patrolHistory', serviceVehicles:'db:serviceVehicles',
   organizations:'db:organizations', orgMapImage:'db:orgMapImage', arrestReports:'db:arrestReports', seizures:'db:seizures', ppas:'db:ppas', complaints:'db:complaints', convocations:'db:convocations',
   dispatchAssignments:'db:dispatchAssignments',
-  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports', internalConvocations:'db:internalConvocations',
+  ranks:'db:ranks', settings:'db:settings', defcon:'db:defcon', divisions:'db:divisions', divisionReports:'db:divisionReports', internalConvocations:'db:internalConvocations', academyApplications:'db:academyApplications',
   session:'session:current'
 };
 
@@ -1004,7 +1016,7 @@ async function loadImageDimensions(url){
   });
 }
 async function loadAll(){
-  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports','internalConvocations']){
+  for(const key of ['citizens','vehicles','reports','warrants','officers','bolos','penalCode','detectiveReports','logs','events','dispatch','patrolUnits','patrolHistory','serviceVehicles','organizations','arrestReports','seizures','ppas','complaints','convocations','divisionReports','internalConvocations','academyApplications']){
     try{
       const res = await window.storage.get(K[key], true);
       DB[key] = res && res.value ? JSON.parse(res.value) : [];
@@ -1097,6 +1109,7 @@ async function loadAll(){
     const divisionSectionDefaults = {};
     DIVISION_REPORT_SECTIONS.forEach(s => { divisionSectionDefaults[s.reportsKey] = s.division; });
     Object.keys(DIVISION_PLANNING_SECTIONS).forEach(key => { divisionSectionDefaults[key] = DIVISION_PLANNING_SECTIONS[key]; });
+    divisionSectionDefaults['academyApplications'] = 'Police Academy';
     DB.settings.sectionAccess = DB.settings.sectionAccess || {};
     let divSectionsMigrated = false;
     Object.keys(divisionSectionDefaults).forEach(key => {
@@ -2042,6 +2055,7 @@ function render(){
   else if(currentPage === 'convocationForm') c.innerHTML = renderConvocationForm();
   else if(currentPage === 'internalConvocations') c.innerHTML = renderInternalConvocations();
   else if(currentPage === 'internalConvocationForm') c.innerHTML = renderInternalConvocationForm();
+  else if(currentPage === 'academyApplications') c.innerHTML = renderAcademyApplications();
   else if(currentPage === 'reports') c.innerHTML = renderReports();
   else if(currentPage === 'reportForm') c.innerHTML = renderReportForm();
   else if(currentPage === 'detectiveReportForm') c.innerHTML = renderDetectiveReportForm();
@@ -4545,6 +4559,159 @@ async function submitInternalConvocation(){
   goPage('internalConvocations');
 }
 
+/* ===================== ACADEMY — CANDIDATURES REÇUES (formulaire public) ===================== */
+function academyApplicationStatusTag(s){
+  if(s === 'Acceptée') return '<span class="tag tag-green">Acceptée</span>';
+  if(s === 'Refusée') return '<span class="tag tag-red">Refusée</span>';
+  return '<span class="tag tag-amber">En attente</span>';
+}
+let academyApplicationSearch = '';
+function renderAcademyApplications(){
+  const search = academyApplicationSearch.toLowerCase();
+  const list = DB.academyApplications
+    .filter(a => (a.firstName+' '+a.lastName+' '+a.phone+' '+(a.motivation||'')).toLowerCase().includes(search))
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Candidatures reçues</div><div class="page-sub">CANDIDATURES POLICE ACADEMY</div></div>
+      <button class="btn btn-primary" onclick="openPublicLinkModal(null,'academyApplicationForm')">🔗 Lien du formulaire</button>
+    </div>
+    <div class="toolbar">
+      <div class="field search-input"><input placeholder="Rechercher un nom, un téléphone..." value="${escapeHtml(academyApplicationSearch)}" oninput="academyApplicationSearch=this.value;render()"></div>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Nom</th><th>Téléphone</th><th>Reçue le</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(a => `
+          <tr style="cursor:pointer;" onclick="openAcademyApplicationView('${a.id}')">
+            <td class="row-name">${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</td>
+            <td class="mono">${escapeHtml(a.phone)||'—'}</td>
+            <td class="mono">${new Date(a.date).toLocaleDateString('fr-FR')}</td>
+            <td>${academyApplicationStatusTag(a.status)}</td>
+            <td class="row-actions">
+              <button class="icon-btn danger" onclick="event.stopPropagation();deleteEntity('academyApplications','${a.id}')">Suppr.</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty-state"><div class="em-icon">📥</div>Aucune candidature reçue pour le moment.</div>`}
+  `;
+}
+function openAcademyApplicationView(id){
+  const a = DB.academyApplications.find(x => x.id === id);
+  if(!a) return;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'active-modal';
+  backdrop.innerHTML = `
+    <div class="modal" style="width:620px;max-width:95vw;">
+      <div class="modal-head">
+        <h3>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;">${academyApplicationStatusTag(a.status)}</div>
+
+        <div class="af-label">Date de naissance</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);">${escapeHtml(a.dob)||'—'}</div>
+
+        <div class="af-label">Téléphone</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);" class="mono">${escapeHtml(a.phone)||'—'}</div>
+
+        <div class="af-label">Motivation</div>
+        <div style="margin-bottom:10px;font-size:13px;color:var(--text-dim);white-space:pre-line;">${escapeHtml(a.motivation)||'—'}</div>
+
+        <div class="af-label">Statut de la candidature</div>
+        <select onchange="setAcademyApplicationStatus('${a.id}', this.value)" style="margin-bottom:6px;">
+          <option value="En attente" ${a.status==='En attente'?'selected':''}>En attente</option>
+          <option value="Acceptée" ${a.status==='Acceptée'?'selected':''}>Acceptée</option>
+          <option value="Refusée" ${a.status==='Refusée'?'selected':''}>Refusée</option>
+        </select>
+
+        <div class="helper-text" style="margin-top:12px;">Candidature reçue le ${fmtDate(a.date)}</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="closeModal()">Fermer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+}
+async function setAcademyApplicationStatus(id, status){
+  const a = DB.academyApplications.find(x => x.id === id);
+  if(!a) return;
+  a.status = status;
+  await saveKey('academyApplications');
+  await logAction('Modification candidature Academy', `${a.firstName} ${a.lastName} — statut → ${status}`);
+  render();
+}
+
+// ----- Formulaire public (accessible sans connexion au terminal) -----
+function renderPublicAcademyApplicationForm(){
+  const root = document.getElementById('public-report-root');
+  document.getElementById('app').style.display = 'none';
+  root.style.display = 'block';
+  const badgeHtml = DB.settings.pubdocLogoUrl ? `<img src="${escapeHtml(DB.settings.pubdocLogoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : pubdocBadgeSvg();
+  root.innerHTML = `
+    <div class="pubdoc" style="max-width:640px;">
+      <div class="pubdoc-head">
+        <div class="pubdoc-badge">${badgeHtml}</div>
+        <div>
+          <h1 class="pubdoc-title">Candidature — Police Academy</h1>
+          <div class="pubdoc-subtitle">Département de Police de San Andreas</div>
+        </div>
+      </div>
+      <p style="color:#5a6472;font-size:13px;line-height:1.6;margin:16px 0 22px;">Remplis ce formulaire pour candidater à la Police Academy. Ta candidature sera examinée par le service concerné.</p>
+      <div id="academy-app-form">
+        <div class="pubform-field"><label>Prénom *</label><input id="paf-firstName" type="text"></div>
+        <div class="pubform-field"><label>Nom *</label><input id="paf-lastName" type="text"></div>
+        <div class="pubform-field"><label>Date de naissance</label><input id="paf-dob" type="text" placeholder="JJ/MM/AAAA"></div>
+        <div class="pubform-field"><label>Téléphone *</label><input id="paf-phone" type="text"></div>
+        <div class="pubform-field"><label>Motivation *</label><textarea id="paf-motivation" rows="6" placeholder="Explique pourquoi tu souhaites rejoindre la Police Academy..."></textarea></div>
+        <div id="paf-error" style="color:#d64545;font-size:12.5px;margin-bottom:12px;display:none;"></div>
+        <button class="pubform-submit" onclick="submitPublicAcademyApplication()">Envoyer ma candidature</button>
+      </div>
+      <div id="academy-app-success" style="display:none;" class="pubform-success">
+        <div style="font-size:38px;margin-bottom:10px;">✅</div>
+        <div style="font-size:16px;font-weight:700;color:#1c2026;margin-bottom:6px;">Candidature envoyée</div>
+        <div style="color:#5a6472;font-size:13px;">Merci ! Ta candidature a bien été transmise à la Police Academy.</div>
+      </div>
+    </div>
+  `;
+}
+async function submitPublicAcademyApplication(){
+  const firstName = document.getElementById('paf-firstName').value.trim();
+  const lastName = document.getElementById('paf-lastName').value.trim();
+  const dob = document.getElementById('paf-dob').value.trim();
+  const phone = document.getElementById('paf-phone').value.trim();
+  const motivation = document.getElementById('paf-motivation').value.trim();
+  const errorEl = document.getElementById('paf-error');
+  if(!firstName || !lastName || !phone || !motivation){
+    errorEl.textContent = 'Merci de remplir tous les champs obligatoires (*).';
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+  const submitBtn = document.querySelector('.pubform-submit');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Envoi...'; }
+  try{
+    // relit le stockage juste avant écriture (plutôt que le DB en mémoire, potentiellement périmé)
+    // pour limiter la perte de données en cas d'envois simultanés par plusieurs candidats.
+    const res = await window.storage.get(K.academyApplications, true);
+    const current = res && res.value ? JSON.parse(res.value) : [];
+    current.push({
+      id: uid('apply'), firstName, lastName, dob, phone, motivation,
+      status: 'En attente', date: nowISO()
+    });
+    await window.storage.set(K.academyApplications, JSON.stringify(current), true);
+    document.getElementById('academy-app-form').style.display = 'none';
+    document.getElementById('academy-app-success').style.display = 'block';
+  }catch(e){
+    errorEl.textContent = "Une erreur est survenue lors de l'envoi. Réessaie dans un instant.";
+    errorEl.style.display = 'block';
+    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Envoyer ma candidature'; }
+  }
+}
+
 /* ===================== DOSSIER — PPA (PERMIS DE PORT D'ARME) ===================== */
 const PPA_CATEGORIES = [
   'Arme de poing (catégorie B)','Arme d\u2019épaule (catégorie C)','Arme de chasse',
@@ -6934,7 +7101,7 @@ async function resetRankLogo(rank){
 const COLLECTION_LABELS = {
   citizens:'Citoyen', vehicles:'Véhicule', reports:'Rapport', warrants:'Mandat',
   penalCode:'Infraction (Code Pénal)', detectiveReports:'Rapport Detective', events:'Évènement', dispatch:'Appel Dispatch',
-  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation', divisionReports:'Rapport de division', internalConvocations:'Convocation interne'
+  serviceVehicles:'Véhicule de service', organizations:'Organisation', arrestReports:"Rapport d'arrestation", seizures:'Saisie', ppas:'PPA', complaints:'Plainte', convocations:'Convocation', divisionReports:'Rapport de division', internalConvocations:'Convocation interne', academyApplications:'Candidature Academy'
 };
 async function deleteEntity(collection, id){
   const ok = await confirmDialog('Confirmer la suppression de cette entrée ?');
@@ -6976,16 +7143,23 @@ function buildPublicInternalConvocationUrl(convocationNumber){
 function buildPublicWarrantUrl(warrantNumber){
   return location.origin + location.pathname + '?public_warrant=' + encodeURIComponent(warrantNumber);
 }
+function buildAcademyApplicationFormUrl(){
+  return location.origin + location.pathname + '?apply_academy=1';
+}
 function openPublicLinkModal(number, kind){
-  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective', 'convocation', 'internalConvocation' ou 'warrant'
+  // kind : 'report' (par défaut, rétrocompatible — rapport d'arrestation), 'complaint', 'report_incident', 'report_detective', 'convocation', 'internalConvocation', 'warrant' ou 'academyApplicationForm'
   const url = kind === 'complaint' ? buildPublicComplaintUrl(number)
     : kind === 'report_incident' ? buildPublicIncidentReportUrl(number)
     : kind === 'report_detective' ? buildPublicDetectiveReportUrl(number)
     : kind === 'convocation' ? buildPublicConvocationUrl(number)
     : kind === 'internalConvocation' ? buildPublicInternalConvocationUrl(number)
     : kind === 'warrant' ? buildPublicWarrantUrl(number)
+    : kind === 'academyApplicationForm' ? buildAcademyApplicationFormUrl()
     : buildPublicReportUrl(number);
-  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : kind === 'internalConvocation' ? 'Lien public de la convocation interne' : kind === 'warrant' ? 'Lien public du mandat' : 'Lien public du rapport';
+  const label = kind === 'complaint' ? 'Lien public de la plainte' : kind === 'convocation' ? 'Lien public de la convocation' : kind === 'internalConvocation' ? 'Lien public de la convocation interne' : kind === 'warrant' ? 'Lien public du mandat' : kind === 'academyApplicationForm' ? 'Lien du formulaire de candidature' : 'Lien public du rapport';
+  const helperText = kind === 'academyApplicationForm'
+    ? "Toute personne disposant de ce lien peut soumettre une candidature, sans avoir besoin de se connecter au terminal — les réponses arrivent directement dans « Candidatures reçues »."
+    : "Toute personne disposant de ce lien peut consulter ce document, sans avoir besoin de se connecter au terminal.";
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'active-modal';
@@ -6994,7 +7168,7 @@ function openPublicLinkModal(number, kind){
       <div class="modal-head"><h3>${escapeHtml(label)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
       <div class="modal-body">
         <p style="margin:0 0 10px;color:var(--text-dim);font-size:13px;line-height:1.5;">
-          Toute personne disposant de ce lien peut consulter ce document, sans avoir besoin de se connecter au terminal.
+          ${helperText}
         </p>
         <input id="public-link-input" type="text" value="${escapeHtml(url)}" readonly
           style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:var(--radius);font-family:var(--font-mono);font-size:12px;"
@@ -7575,6 +7749,12 @@ async function init(){
     await loadAll();
     renderPublicWarrant(publicWarrantId);
     return; // pas de connexion nécessaire pour consulter un mandat public
+  }
+  const applyAcademy = new URLSearchParams(location.search).get('apply_academy');
+  if(applyAcademy){
+    await loadAll();
+    renderPublicAcademyApplicationForm();
+    return; // formulaire ouvert à tous, sans connexion au terminal
   }
   // Bascule le formulaire de connexion : matricule + mot de passe si Supabase est
   // configuré (authentification réelle), sinon l'ancien formulaire ouvert (matricule + nom).

@@ -630,49 +630,8 @@
 
     <div id="main-layout">
       <div id="sidebar">
-        <div class="nav-section-label">Terminal</div>
         <div class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')"><span class="nav-icon">🏠</span> Accueil</div>
-        <div class="nav-item" id="nav-item-events" data-page="events" onclick="goPage('events')"><span class="nav-icon">▦</span> <span class="nav-label">Évènements</span> <span class="nav-count" id="count-events">0</span></div>
-        <div class="nav-item" id="nav-item-orgchart" data-page="orgchart" onclick="goPage('orgchart')"><span class="nav-icon">🗂</span> <span class="nav-label">Organigramme</span></div>
-        <div class="nav-item" id="nav-item-defcon" data-page="defcon" onclick="goPage('defcon')"><span class="nav-icon">☢</span> <span class="nav-label">Defcon</span></div>
-        <div class="nav-section-label">Patrouille</div>
-        <div class="nav-item" id="nav-item-dispatch" data-page="dispatch" onclick="goPage('dispatch')"><span class="nav-icon">◈</span> <span class="nav-label">Dispatch</span></div>
-        <div class="nav-item" id="nav-item-serviceVehicles" data-page="serviceVehicles" onclick="goPage('serviceVehicles')"><span class="nav-icon">🚓</span> <span class="nav-label">Véhicules Service</span></div>
-        <div class="nav-section-label">Base de données</div>
-        <div class="nav-item" id="nav-item-citizens" data-page="citizens" onclick="goPage('citizens')"><span class="nav-icon">☰</span> <span class="nav-label">Citoyens</span></div>
-        <div class="nav-item" id="nav-item-organizations" data-page="organizations" onclick="goPage('organizations')"><span class="nav-icon">⌘</span> <span class="nav-label">Organisations / Gangs</span></div>
-        <div class="nav-item" id="nav-item-warrants" data-page="warrants" onclick="goPage('warrants')"><span class="nav-icon">⚠</span> <span class="nav-label">Mandats</span> <span class="nav-count" id="count-warrants">0</span></div>
-        <div class="nav-item" id="nav-item-penalcode" data-page="penalcode" onclick="goPage('penalcode')"><span class="nav-icon">§</span> <span class="nav-label">Code Pénal</span></div>
-        <div class="nav-section-label">Dossier</div>
-        <div class="nav-item" id="nav-item-arrestReports" data-page="arrestReports" onclick="goPage('arrestReports')"><span class="nav-icon">⛓</span> <span class="nav-label">Rapport d'arrestation</span></div>
-        <div class="nav-item" id="nav-item-reports" data-page="reports" onclick="goPage('reports')"><span class="nav-icon">▤</span> <span class="nav-label">Rapports</span></div>
-        <div class="nav-item" id="nav-item-seizures" data-page="seizures" onclick="goPage('seizures')"><span class="nav-icon">📦</span> <span class="nav-label">Saisies</span></div>
-        <div class="nav-item" id="nav-item-ppa" data-page="ppa" onclick="goPage('ppa')"><span class="nav-icon">🔫</span> <span class="nav-label">PPA</span></div>
-        <div class="nav-item" id="nav-item-complaints" data-page="complaints" onclick="goPage('complaints')"><span class="nav-icon">📣</span> <span class="nav-label">Plainte</span></div>
-        <div class="nav-item" id="nav-item-convocations" data-page="convocations" onclick="goPage('convocations')"><span class="nav-icon">📨</span> <span class="nav-label">Convocation</span></div>
-        <div class="nav-section-label" id="nav-section-roster">Service</div>
-        <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">👮</span> <span class="nav-label">Effectifs</span> <span class="nav-count" id="count-roster">0</span></div>
-        <div class="nav-section-label" id="nav-section-detective">Detective</div>
-        <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> <span class="nav-label">Rapports</span></div>
-        <div class="nav-item" id="nav-item-planning_detective" data-page="planning_detective" onclick="goPage('planning_detective')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_detective">0</span></div>
-        <div class="nav-section-label" id="nav-section-asu">A.S.U.</div>
-        <div class="nav-item" id="nav-item-divrep_asu" data-page="divrep_asu" onclick="goPage('divrep_asu')"><span class="nav-icon">🚁</span> <span class="nav-label">Rapports A.S.U.</span></div>
-        <div class="nav-item" id="nav-item-planning_asu" data-page="planning_asu" onclick="goPage('planning_asu')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_asu">0</span></div>
-        <div class="nav-section-label" id="nav-section-k9">K-9</div>
-        <div class="nav-item" id="nav-item-divrep_k9" data-page="divrep_k9" onclick="goPage('divrep_k9')"><span class="nav-icon">🐕</span> <span class="nav-label">Rapports K-9</span></div>
-        <div class="nav-item" id="nav-item-planning_k9" data-page="planning_k9" onclick="goPage('planning_k9')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_k9">0</span></div>
-        <div class="nav-section-label" id="nav-section-academy">Academy</div>
-        <div class="nav-item" id="nav-item-divrep_pa" data-page="divrep_pa" onclick="goPage('divrep_pa')"><span class="nav-icon">🎓</span> <span class="nav-label">Rapports P.A.</span></div>
-        <div class="nav-item" id="nav-item-planning_pa" data-page="planning_pa" onclick="goPage('planning_pa')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_pa">0</span></div>
-        <div class="nav-section-label" id="nav-section-td">Trafic Division</div>
-        <div class="nav-item" id="nav-item-divrep_td" data-page="divrep_td" onclick="goPage('divrep_td')"><span class="nav-icon">🚦</span> <span class="nav-label">Rapports T.D.</span></div>
-        <div class="nav-item" id="nav-item-planning_td" data-page="planning_td" onclick="goPage('planning_td')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_td">0</span></div>
-        <div class="nav-section-label" id="nav-section-swat">S.W.A.T.</div>
-        <div class="nav-item" id="nav-item-divrep_swat" data-page="divrep_swat" onclick="goPage('divrep_swat')"><span class="nav-icon">🛡</span> <span class="nav-label">Rapports S.W.A.T.</span></div>
-        <div class="nav-item" id="nav-item-planning_swat" data-page="planning_swat" onclick="goPage('planning_swat')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_swat">0</span></div>
-        <div class="nav-section-label" id="nav-section-logs">Logs</div>
-        <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">🗂️</span> <span class="nav-label">Logs</span></div>
-        <div id="custom-nav-region"></div>
+        <div id="dynamic-nav-region"><!-- groupes et sections (intégrés + personnalisés), injectés dans l'ordre configuré --></div>
         <div class="nav-section-label" id="nav-section-admin">Administration</div>
         <div class="nav-item" id="nav-item-users" data-page="users" onclick="goPage('users')"><span class="nav-icon">⚙️</span> Utilisateurs</div>
         <div class="nav-item" id="nav-item-settingsPage" data-page="settingsPage" onclick="goPage('settingsPage')"><span class="nav-icon">🛠️</span> Paramètres</div>
@@ -1526,16 +1485,64 @@ function enterApp(){
 // Applique Paramètres > Gestion Section au menu latéral : affiche/masque chaque item selon le
 // grade minimum configuré (ou 'hidden'/'all'). Appelée à la connexion et à chaque changement
 // de réglage depuis la page Paramètres, pour un effet immédiat sans recharger la page.
+// Ordre par défaut des groupes (celui d'origine, avant que le réordonnancement soit possible) —
+// sert de repli tant qu'un groupe n'a pas de position explicite dans DB.settings.groupOrder.
+const DEFAULT_GROUP_ORDER = ['Terminal','Patrouille','Base de données','Dossier','Service','Detective','A.S.U.','K-9','Academy','Trafic Division','S.W.A.T.','Logs'];
+function groupOrderValue(group){
+  if(DB.settings.groupOrder && DB.settings.groupOrder[group] !== undefined) return DB.settings.groupOrder[group];
+  const i = DEFAULT_GROUP_ORDER.indexOf(group);
+  return i === -1 ? 999 : i;
+}
+function sectionOrderValue(key){
+  if(DB.settings.sectionOrder && DB.settings.sectionOrder[key] !== undefined) return DB.settings.sectionOrder[key];
+  return 999;
+}
+// Liste des groupes existants (sections intégrées + personnalisées), triés selon Paramètres >
+// Gestion Section (ou l'ordre par défaut si non configuré).
+function orderedGroups(){
+  const groups = [...new Set(allSectionDefs().map(d => d.group))];
+  groups.sort((a,b) => groupOrderValue(a) - groupOrderValue(b) || a.localeCompare(b));
+  return groups;
+}
+// Sections d'un groupe, triées selon Paramètres > Gestion Section (ou l'ordre d'origine sinon).
+function sectionsInGroup(group){
+  return allSectionDefs().filter(d => d.group === group)
+    .sort((a,b) => sectionOrderValue(a.key) - sectionOrderValue(b.key));
+}
+function navItemCountBadgeHtml(key){
+  if(key === 'events' || key === 'warrants' || key === 'roster' || DIVISION_PLANNING_SECTIONS[key]){
+    return ` <span class="nav-count" id="count-${key}">0</span>`;
+  }
+  return '';
+}
+// (Re)construit tout le menu latéral (hors Accueil et Administration, fixes) dans l'ordre
+// configuré depuis Paramètres > Gestion Section. Rappelée à la connexion et à chaque changement
+// (accès, personnalisation, réordonnancement, sections personnalisées).
+function renderDynamicNav(){
+  const region = document.getElementById('dynamic-nav-region');
+  if(!region) return;
+  region.innerHTML = orderedGroups().map(group => {
+    const items = sectionsInGroup(group);
+    if(!items.length) return '';
+    return `
+      <div class="nav-section-label">${escapeHtml(group)}</div>
+      ${items.map(s => {
+        const icon = s.custom ? (s.icon||'📌') : sectionIcon(s);
+        const label = s.custom ? s.label : sectionLabel(s);
+        return `<div class="nav-item" id="nav-item-${escapeHtml(s.key)}" data-page="${escapeHtml(s.key)}" onclick="goPage('${escapeHtml(s.key)}')"><span class="nav-icon">${escapeHtml(icon)}</span> <span class="nav-label">${escapeHtml(label)}</span>${navItemCountBadgeHtml(s.key)}</div>`;
+      }).join('')}
+    `;
+  }).join('');
+}
 function updateNavVisibility(){
-  renderCustomNavItems();
+  renderDynamicNav();
+  refreshEventCountBadges();
   allSectionDefs().forEach(s => {
     const allowed = s.key === 'detectiveReports' ? hasDetectiveAccess() : hasSectionAccess(s.key);
     const el = document.querySelector(`.nav-item[data-page="${s.key}"]`);
     if(el) el.style.display = allowed ? 'flex' : 'none';
   });
-  // Chaque libellé de groupe (Service, Detective, A.S.U., K-9, Academy, Trafic Division, S.W.A.T.,
-  // Logs, groupes personnalisés...) est masqué si aucun de ses items n'est visible pour l'agent
-  // connecté — générique, fonctionne pour un groupe à un seul item comme à plusieurs.
+  // Chaque libellé de groupe est masqué si aucun de ses items n'est visible pour l'agent connecté.
   document.querySelectorAll('.nav-section-label').forEach(label => {
     let visibleCount = 0;
     let el = label.nextElementSibling;
@@ -1546,18 +1553,39 @@ function updateNavVisibility(){
     label.style.display = visibleCount ? 'block' : 'none';
   });
 }
-// (Re)construit la zone de sections personnalisées du menu latéral (Paramètres > Gestion Section),
-// groupées par le nom de groupe choisi à leur création. Rappelée à chaque changement.
-function renderCustomNavItems(){
-  const region = document.getElementById('custom-nav-region');
-  if(!region) return;
-  const sections = DB.settings.customSections || [];
-  const groups = {};
-  sections.forEach(cs => { (groups[cs.group] = groups[cs.group] || []).push(cs); });
-  region.innerHTML = Object.keys(groups).map(group => `
-    <div class="nav-section-label">${escapeHtml(group)}</div>
-    ${groups[group].map(cs => `<div class="nav-item" id="nav-item-${cs.key}" data-page="${cs.key}" onclick="goPage('${cs.key}')"><span class="nav-icon">${escapeHtml(cs.icon || '📌')}</span> <span class="nav-label">${escapeHtml(cs.name)}</span></div>`).join('')}
-  `).join('');
+// Déplace un groupe entier (toutes ses sections) d'un cran dans le menu latéral.
+async function moveNavGroup(group, dir){
+  if(!isAdmin()) return;
+  const groups = orderedGroups();
+  const idx = groups.indexOf(group);
+  const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if(targetIdx < 0 || targetIdx >= groups.length) return;
+  DB.settings.groupOrder = DB.settings.groupOrder || {};
+  groups.forEach((g,i) => { if(DB.settings.groupOrder[g] === undefined) DB.settings.groupOrder[g] = i; });
+  const a = groups[idx], b = groups[targetIdx];
+  const tmp = DB.settings.groupOrder[a]; DB.settings.groupOrder[a] = DB.settings.groupOrder[b]; DB.settings.groupOrder[b] = tmp;
+  await saveKey('settings');
+  await logAction('Réorganisation menu', `Groupe "${group}" déplacé`);
+  updateNavVisibility();
+  render();
+}
+// Déplace une section d'un cran au sein de son groupe.
+async function moveNavSection(key, dir){
+  if(!isAdmin()) return;
+  const s = allSectionDefs().find(x => x.key === key);
+  if(!s) return;
+  const siblings = sectionsInGroup(s.group);
+  const idx = siblings.findIndex(x => x.key === key);
+  const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if(targetIdx < 0 || targetIdx >= siblings.length) return;
+  DB.settings.sectionOrder = DB.settings.sectionOrder || {};
+  siblings.forEach((x,i) => { if(DB.settings.sectionOrder[x.key] === undefined) DB.settings.sectionOrder[x.key] = i; });
+  const a = siblings[idx].key, b = siblings[targetIdx].key;
+  const tmp = DB.settings.sectionOrder[a]; DB.settings.sectionOrder[a] = DB.settings.sectionOrder[b]; DB.settings.sectionOrder[b] = tmp;
+  await saveKey('settings');
+  await logAction('Réorganisation menu', `Section "${key}" déplacée`);
+  updateNavVisibility();
+  render();
 }
 
 /* ===================== NAV ===================== */
@@ -6127,42 +6155,58 @@ function renderSettingsDivisionsTab(){
 }
 
 function renderSettingsSectionsTab(){
-  const rows = allSectionDefs().map(s => {
-    const cfg = sectionAccessConfig(s.key);
-    const current = cfg.rank;
-    const rankOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${current===r?'selected':''}>À partir de : ${escapeHtml(r)}</option>`).join('');
-    const isCustomized = !!(DB.settings.sectionOverrides && DB.settings.sectionOverrides[s.key]);
+  const groups = orderedGroups();
+  const groupsHtml = groups.map((group, gIdx) => {
+    const sections = sectionsInGroup(group);
+    const rows = sections.map((s, sIdx) => {
+      const cfg = sectionAccessConfig(s.key);
+      const current = cfg.rank;
+      const rankOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${current===r?'selected':''}>À partir de : ${escapeHtml(r)}</option>`).join('');
+      const isCustomized = !!(DB.settings.sectionOverrides && DB.settings.sectionOverrides[s.key]);
+      return `
+        <tr>
+          <td class="row-actions" style="padding-right:0;">
+            <button class="icon-btn" ${sIdx===0?'disabled':''} onclick="moveNavSection('${s.key}','up')" title="Monter">↑</button>
+            <button class="icon-btn" ${sIdx===sections.length-1?'disabled':''} onclick="moveNavSection('${s.key}','down')" title="Descendre">↓</button>
+          </td>
+          <td class="row-name">${escapeHtml(s.custom ? s.icon : sectionIcon(s))} ${escapeHtml(s.custom ? s.label : sectionLabel(s))}${s.custom ? ' <span class="tag tag-grey" style="margin-left:4px;">Personnalisée</span>' : ''}</td>
+          <td>
+            <select onchange="setSectionAccessValue('${s.key}', this.value)">
+              <option value="all" ${current==='all'?'selected':''}>Visible (tous grades)</option>
+              <option value="hidden" ${current==='hidden'?'selected':''}>Non visible</option>
+              ${rankOptions}
+            </select>
+          </td>
+          <td>${cfg.divisions.length ? cfg.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="helper-text">—</span>'}</td>
+          <td class="row-actions">
+            <button class="icon-btn" onclick="openSectionDivisionsModal('${s.key}')">Divisions</button>
+            ${s.custom ? `
+            <button class="icon-btn" onclick="openEditCustomSectionModal('${s.key}')">Modifier</button>
+            <button class="icon-btn danger" onclick="deleteCustomSection('${s.key}')">Suppr.</button>` : `
+            <button class="icon-btn" onclick="openSectionCustomizeModal('${s.key}')">Personnaliser</button>
+            ${isCustomized ? `<button class="icon-btn" onclick="resetSectionCustomization('${s.key}')">Par défaut</button>` : ''}`}
+          </td>
+        </tr>`;
+    }).join('');
     return `
-      <tr>
-        <td class="mono" style="color:var(--text-faint);">${escapeHtml(s.group)}</td>
-        <td class="row-name">${escapeHtml(s.custom ? s.icon : sectionIcon(s))} ${escapeHtml(s.custom ? s.label : sectionLabel(s))}${s.custom ? ' <span class="tag tag-grey" style="margin-left:4px;">Personnalisée</span>' : ''}</td>
-        <td>
-          <select onchange="setSectionAccessValue('${s.key}', this.value)">
-            <option value="all" ${current==='all'?'selected':''}>Visible (tous grades)</option>
-            <option value="hidden" ${current==='hidden'?'selected':''}>Non visible</option>
-            ${rankOptions}
-          </select>
-        </td>
-        <td>${cfg.divisions.length ? cfg.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="helper-text">—</span>'}</td>
-        <td class="row-actions">
-          <button class="icon-btn" onclick="openSectionDivisionsModal('${s.key}')">Divisions</button>
-          ${s.custom ? `
-          <button class="icon-btn" onclick="openEditCustomSectionModal('${s.key}')">Modifier</button>
-          <button class="icon-btn danger" onclick="deleteCustomSection('${s.key}')">Suppr.</button>` : `
-          <button class="icon-btn" onclick="openSectionCustomizeModal('${s.key}')">Personnaliser</button>
-          ${isCustomized ? `<button class="icon-btn" onclick="resetSectionCustomization('${s.key}')">Par défaut</button>` : ''}`}
-        </td>
-      </tr>`;
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <button class="icon-btn" ${gIdx===0?'disabled':''} onclick="moveNavGroup('${escapeHtml(group)}','up')" title="Monter le groupe">↑</button>
+          <button class="icon-btn" ${gIdx===groups.length-1?'disabled':''} onclick="moveNavGroup('${escapeHtml(group)}','down')" title="Descendre le groupe">↓</button>
+          <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:var(--text-faint);">${escapeHtml(group)}</div>
+        </div>
+        <table>
+          <thead><tr><th style="width:64px;"></th><th>Section</th><th>Accès (grade)</th><th>Accès (divisions)</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }).join('');
   return `
     <div class="settings-section" style="max-width:1080px;">
       <div class="settings-section-title">Gestion Section</div>
-      <div class="settings-section-sub">Visibilité de chaque section du menu par grade et/ou par division, et personnalisation de son nom et de son icône dans le menu latéral. Un accès par division s'ajoute au seuil de grade (l'un ou l'autre suffit), sauf si la section est réglée sur « Non visible ». L'Accueil ainsi que Utilisateurs et Paramètres restent toujours accessibles et non personnalisables (pour éviter tout blocage).</div>
-      <table>
-        <thead><tr><th>Groupe</th><th>Section</th><th>Accès (grade)</th><th>Accès (divisions)</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <button class="btn" style="margin-top:12px;" onclick="openCreateCustomSectionModal()">+ Créer une section</button>
+      <div class="settings-section-sub">Ordre, visibilité par grade et/ou par division, et personnalisation du nom et de l'icône de chaque groupe et section du menu latéral. Un accès par division s'ajoute au seuil de grade (l'un ou l'autre suffit), sauf si la section est réglée sur « Non visible ». L'Accueil ainsi que Utilisateurs et Paramètres restent toujours en première/dernière position, accessibles et non personnalisables (pour éviter tout blocage).</div>
+      ${groupsHtml}
+      <button class="btn" onclick="openCreateCustomSectionModal()">+ Créer une section</button>
     </div>
   `;
 }

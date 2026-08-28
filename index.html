@@ -800,6 +800,7 @@ const SECTION_REGISTRY = [
   { key:'complaints', label:'Plainte', group:'Dossier', icon:'📣' },
   { key:'convocations', label:'Convocation', group:'Dossier', icon:'📨' },
   { key:'roster', label:'Effectifs', group:'Service', icon:'★' },
+  { key:'myHours', label:'Mes heures de service', group:'Service', icon:'⏱' },
   { key:'internalConvocations', label:'Convocation Interne', group:'Service', icon:'📨' },
   { key:'detectiveReports', label:'Rapports Detective', group:'Detective', icon:'⚑' },
   { key:'planning_detective', label:'Planning', group:'Detective', icon:'📅', division:'Detective Division' },
@@ -2070,6 +2071,7 @@ function render(){
   else if(currentPage === 'warrantForm') c.innerHTML = renderWarrantForm();
   else if(currentPage === 'penalcode') c.innerHTML = renderPenalCode();
   else if(currentPage === 'roster') c.innerHTML = renderRoster();
+  else if(currentPage === 'myHours') c.innerHTML = renderMyHours();
   else if(currentPage === 'detectiveReports') c.innerHTML = renderDetectiveReports();
   else if(currentPage === 'divisionReportForm') c.innerHTML = renderDivisionReportForm();
   else if(DIVISION_REPORT_SECTIONS.some(s => s.reportsKey === currentPage)){
@@ -5661,6 +5663,82 @@ function renderRoster(){
       </tbody>
     </table>` : `<div class="empty-state"><div class="em-icon">★</div>Aucun agent enregistré.</div>`}
   `;
+}
+// Jours de la semaine dans l'ordre Lundi → Dimanche pour "Mes heures de service" (indépendant de
+// l'ordre natif JS Date.getDay(), qui commence au Dimanche).
+const WEEK_DAYS = [
+  { key:'mon', label:'Lundi' },
+  { key:'tue', label:'Mardi' },
+  { key:'wed', label:'Mercredi' },
+  { key:'thu', label:'Jeudi' },
+  { key:'fri', label:'Vendredi' },
+  { key:'sat', label:'Samedi' },
+  { key:'sun', label:'Dimanche' },
+];
+function todayWeekKey(){
+  return WEEK_DAYS[(new Date().getDay() + 6) % 7].key; // getDay(): 0=Dimanche → recalé sur WEEK_DAYS
+}
+function defaultWeeklyHours(){
+  return { mon:0, tue:0, wed:0, thu:0, fri:0, sat:0, sun:0 };
+}
+function renderMyHours(){
+  const officer = currentOfficer();
+  if(!officer) return `<div class="empty-state"><div class="em-icon">⏱</div>Agent introuvable.</div>`;
+  const hours = { ...defaultWeeklyHours(), ...(officer.weeklyHours||{}) };
+  const today = todayWeekKey();
+  const total = WEEK_DAYS.reduce((sum, d) => sum + (Number(hours[d.key]) || 0), 0);
+  return `
+    <div class="page-head">
+      <div><div class="page-title">Mes heures de service</div><div class="page-sub">${escapeHtml(officer.name)} · ${escapeHtml(officer.badge)}</div></div>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+      ${WEEK_DAYS.map(d => `
+        <div style="min-width:110px;">
+          <div class="field" style="margin-bottom:6px;">
+            <label>${d.label}</label>
+            <input type="number" min="0" step="0.5" id="mh-${d.key}" value="${escapeHtml(String(hours[d.key] ?? 0))}" oninput="updateMyHoursTotal()">
+          </div>
+          <div style="text-align:center;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--green);${d.key===today?'':'visibility:hidden;'}">
+            <div style="border-top:1px solid var(--green);margin:0 auto 4px;width:70%;"></div>Aujourd'hui
+          </div>
+        </div>`).join('')}
+      <div style="min-width:110px;">
+        <div class="field" style="margin-bottom:6px;">
+          <label>Total</label>
+          <input type="text" id="mh-total" value="${escapeHtml(String(total))}" disabled>
+        </div>
+      </div>
+    </div>
+    <button class="btn" style="background:var(--green);color:#04231A;border-color:var(--green);margin-top:6px;" onclick="saveMyHours()">Sauvegarder</button>
+  `;
+}
+// Recalcule le Total affiché à la volée pendant la saisie, sans attendre la sauvegarde.
+function updateMyHoursTotal(){
+  const totalInput = document.getElementById('mh-total');
+  if(!totalInput) return;
+  const total = WEEK_DAYS.reduce((sum, d) => {
+    const el = document.getElementById('mh-' + d.key);
+    return sum + (el ? (Number(el.value) || 0) : 0);
+  }, 0);
+  totalInput.value = String(total);
+}
+async function saveMyHours(){
+  const officer = currentOfficer();
+  if(!officer) return;
+  const hours = defaultWeeklyHours();
+  WEEK_DAYS.forEach(d => {
+    const el = document.getElementById('mh-' + d.key);
+    hours[d.key] = el ? Math.max(0, Number(el.value) || 0) : 0;
+  });
+  officer.weeklyHours = hours;
+  const ok = await saveKey('officers');
+  if(ok){
+    await logAction('Mise à jour heures de service', SESSION.callsign);
+    render();
+    infoDialog('Heures de service enregistrées.');
+  } else {
+    infoDialog("Erreur lors de l'enregistrement.");
+  }
 }
 // Compte les dossiers d'une collection réalisés par un agent (matricule présent dans au moins un
 // des champs fournis), répartis en 7 derniers jours / 30 derniers jours / depuis toujours.

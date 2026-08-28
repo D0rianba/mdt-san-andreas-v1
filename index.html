@@ -333,13 +333,16 @@
   thead th{
     text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;
     color:var(--text-faint);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel-2);
+    white-space:nowrap;
   }
   tbody td{padding:11px 14px;font-size:13px;color:var(--text-dim);border-bottom:1px solid var(--border-soft);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:rgba(255,255,255,0.015);}
   .mono{font-family:var(--font-mono);color:var(--text);}
-  .row-name{color:var(--text);font-weight:500;}
-  .row-actions{display:flex;gap:6px;justify-content:flex-end;}
+  .row-name{color:var(--text);font-weight:500;white-space:nowrap;}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap;}
+  .table-scroll{overflow-x:auto;border-radius:var(--radius);}
+  .table-scroll table{border-radius:0;}
   .icon-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius);padding:5px 9px;font-size:11px;cursor:pointer;font-family:var(--font-mono);}
   .icon-btn:hover{border-color:var(--text-dim);color:var(--text);}
   .icon-btn.danger:hover{border-color:var(--red);color:var(--red);}
@@ -6751,14 +6754,14 @@ function renderSettingsGradesTab(){
         <td><div class="settings-logo-preview" style="width:30px;height:30px;border-radius:6px;font-size:11px;">${logoPreview}</div></td>
         <td class="row-name">${escapeHtml(rank)}</td>
         <td>${holders ? `<span class="tag tag-blue">${holders} agent${holders>1?'s':''}</span>` : '<span class="tag tag-grey">Aucun</span>'}</td>
-        <td class="mono">${fmtMoney(hourlyRate)}/h</td>
+        <td class="mono" style="text-align:right;">${fmtMoney(hourlyRate)}/h</td>
         <td class="row-actions">
           <button class="icon-btn" ${isTop?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','up')" title="Monter dans la hiérarchie">↑</button>
           <button class="icon-btn" ${isBottom?'disabled':''} onclick="moveRank('${escapeHtml(rank)}','down')" title="Descendre dans la hiérarchie">↓</button>
           <button class="icon-btn" onclick="openRenameRankModal('${escapeHtml(rank)}')">Renommer</button>
-          <button class="icon-btn" onclick="openRankHourlyRateModal('${escapeHtml(rank)}')">Taux horaire</button>
+          <button class="icon-btn" onclick="openRankHourlyRateModal('${escapeHtml(rank)}')" title="Taux horaire">Taux</button>
           <button class="icon-btn" onclick="openRankLogoModal('${escapeHtml(rank)}')">Logo</button>
-          ${logoUrl ? `<button class="icon-btn" onclick="resetRankLogo('${escapeHtml(rank)}')">Sans logo</button>` : ''}
+          ${logoUrl ? `<button class="icon-btn" onclick="resetRankLogo('${escapeHtml(rank)}')" title="Retirer le logo">Sans logo</button>` : ''}
           <button class="icon-btn danger" onclick="deleteRank('${escapeHtml(rank)}')">Suppr.</button>
         </td>
       </tr>`;
@@ -6772,10 +6775,19 @@ function renderSettingsGradesTab(){
     <div class="settings-section">
       <div class="settings-section-title">Grades du service</div>
       <div class="settings-section-sub">Ordre, renommage, logo, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
+      <div class="table-scroll">
       <table>
-        <thead><tr><th style="width:36px;"></th><th style="width:44px;"></th><th>Grade</th><th>Effectif</th><th>Taux horaire</th><th></th></tr></thead>
+        <thead><tr>
+          <th style="width:36px;"></th>
+          <th style="width:44px;"></th>
+          <th>Grade</th>
+          <th style="width:110px;">Effectif</th>
+          <th style="width:120px;text-align:right;">Taux horaire</th>
+          <th style="width:1%;"></th>
+        </tr></thead>
         <tbody>${rankRows}</tbody>
       </table>
+      </div>
       <button class="btn" style="margin-top:12px;" onclick="openAddRankModal()">+ Ajouter un grade</button>
     </div>
 

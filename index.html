@@ -656,6 +656,7 @@
         <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> <span class="nav-label">Rapports</span></div>
         <div class="nav-section-label" id="nav-section-logs">Logs</div>
         <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">🗂️</span> <span class="nav-label">Logs</span></div>
+        <div id="custom-nav-region"></div>
         <div class="nav-section-label" id="nav-section-admin">Administration</div>
         <div class="nav-item" id="nav-item-users" data-page="users" onclick="goPage('users')"><span class="nav-icon">⚙️</span> Utilisateurs</div>
         <div class="nav-item" id="nav-item-settingsPage" data-page="settingsPage" onclick="goPage('settingsPage')"><span class="nav-icon">🛠️</span> Paramètres</div>
@@ -785,7 +786,14 @@ const DEFAULT_RANKS = [
   'Sergeant I','Sergeant II','Lieutenant I','Lieutenant II','Captain','Commander',
   'Deputy Chief','Assistant Chief','Chief of Police'
 ];
-const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', defconMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{}, sectionOverrides:{} };
+const DEFAULT_SETTINGS = { appLogoUrl:'', pubdocLogoUrl:'', faviconUrl:'', boloMinRank:'Sergeant I', captainTierMinRank:'Captain', defconMinRank:'Captain', divisionLogos:{}, rankLogos:{}, sectionAccess:{}, sectionOverrides:{}, customSections:[] };
+// Fusionne les sections intégrées (SECTION_REGISTRY) et les sections personnalisées créées depuis
+// Paramètres > Gestion Section, pour que l'accès, la navigation et le menu les traitent de façon
+// identique (mêmes fonctions hasSectionAccess/goPage/updateNavVisibility).
+function allSectionDefs(){
+  const custom = (DB.settings.customSections || []).map(cs => ({ key: cs.key, label: cs.name, group: cs.group, icon: cs.icon, custom: true }));
+  return SECTION_REGISTRY.concat(custom);
+}
 // Liste des sections du menu configurables depuis Paramètres > Gestion Section. L'Accueil en est
 // volontairement exclu : c'est la page de repli utilisée partout (connexion, accès refusé...),
 // elle doit donc rester accessible à tout le monde pour éviter tout blocage.
@@ -870,7 +878,7 @@ async function setSectionAccessValue(key, value){
 }
 function openSectionDivisionsModal(key){
   if(!isAdmin()) return;
-  const s = SECTION_REGISTRY.find(x => x.key === key);
+  const s = allSectionDefs().find(x => x.key === key);
   if(!s) return;
   const current = sectionAccessConfig(key);
   showModal({
@@ -1461,7 +1469,8 @@ function enterApp(){
 // grade minimum configuré (ou 'hidden'/'all'). Appelée à la connexion et à chaque changement
 // de réglage depuis la page Paramètres, pour un effet immédiat sans recharger la page.
 function updateNavVisibility(){
-  SECTION_REGISTRY.forEach(s => {
+  renderCustomNavItems();
+  allSectionDefs().forEach(s => {
     const allowed = s.key === 'detectiveReports' ? hasDetectiveAccess() : hasSectionAccess(s.key);
     const el = document.querySelector(`.nav-item[data-page="${s.key}"]`);
     if(el) el.style.display = allowed ? 'flex' : 'none';
@@ -1476,11 +1485,34 @@ function updateNavVisibility(){
   toggleGroup('roster', 'nav-section-roster');
   toggleGroup('detectiveReports', 'nav-section-detective');
   toggleGroup('logs', 'nav-section-logs');
+  // Groupes personnalisés : masqués si aucun de leurs items n'est visible pour l'agent connecté.
+  document.querySelectorAll('#custom-nav-region .nav-section-label').forEach(label => {
+    let visibleCount = 0;
+    let el = label.nextElementSibling;
+    while(el && el.classList.contains('nav-item')){
+      if(el.style.display !== 'none') visibleCount++;
+      el = el.nextElementSibling;
+    }
+    label.style.display = visibleCount ? 'block' : 'none';
+  });
+}
+// (Re)construit la zone de sections personnalisées du menu latéral (Paramètres > Gestion Section),
+// groupées par le nom de groupe choisi à leur création. Rappelée à chaque changement.
+function renderCustomNavItems(){
+  const region = document.getElementById('custom-nav-region');
+  if(!region) return;
+  const sections = DB.settings.customSections || [];
+  const groups = {};
+  sections.forEach(cs => { (groups[cs.group] = groups[cs.group] || []).push(cs); });
+  region.innerHTML = Object.keys(groups).map(group => `
+    <div class="nav-section-label">${escapeHtml(group)}</div>
+    ${groups[group].map(cs => `<div class="nav-item" id="nav-item-${cs.key}" data-page="${cs.key}" onclick="goPage('${cs.key}')"><span class="nav-icon">${escapeHtml(cs.icon || '📌')}</span> <span class="nav-label">${escapeHtml(cs.name)}</span></div>`).join('')}
+  `).join('');
 }
 
 /* ===================== NAV ===================== */
 function goPage(page){
-  const sectionDef = SECTION_REGISTRY.find(s => s.key === page);
+  const sectionDef = allSectionDefs().find(s => s.key === page);
   if(sectionDef){
     const allowed = page === 'detectiveReports' ? hasDetectiveAccess() : hasSectionAccess(page);
     if(!allowed){
@@ -1929,6 +1961,7 @@ function render(){
   else if(currentPage === 'logs') c.innerHTML = renderLogs();
   else if(currentPage === 'users') c.innerHTML = renderUsers();
   else if(currentPage === 'settingsPage') c.innerHTML = renderSettingsPage();
+  else if((DB.settings.customSections||[]).some(cs => cs.key === currentPage)) c.innerHTML = renderCustomSection(currentPage);
   updateCounts();
   renderTicker();
   if(focusInfo){
@@ -5877,7 +5910,7 @@ function renderSettingsDivisionsTab(){
 }
 
 function renderSettingsSectionsTab(){
-  const rows = SECTION_REGISTRY.map(s => {
+  const rows = allSectionDefs().map(s => {
     const cfg = sectionAccessConfig(s.key);
     const current = cfg.rank;
     const rankOptions = RANK_ORDER.map(r => `<option value="${escapeHtml(r)}" ${current===r?'selected':''}>À partir de : ${escapeHtml(r)}</option>`).join('');
@@ -5885,7 +5918,7 @@ function renderSettingsSectionsTab(){
     return `
       <tr>
         <td class="mono" style="color:var(--text-faint);">${escapeHtml(s.group)}</td>
-        <td class="row-name">${escapeHtml(sectionIcon(s))} ${escapeHtml(sectionLabel(s))}</td>
+        <td class="row-name">${escapeHtml(s.custom ? s.icon : sectionIcon(s))} ${escapeHtml(s.custom ? s.label : sectionLabel(s))}${s.custom ? ' <span class="tag tag-grey" style="margin-left:4px;">Personnalisée</span>' : ''}</td>
         <td>
           <select onchange="setSectionAccessValue('${s.key}', this.value)">
             <option value="all" ${current==='all'?'selected':''}>Visible (tous grades)</option>
@@ -5896,8 +5929,11 @@ function renderSettingsSectionsTab(){
         <td>${cfg.divisions.length ? cfg.divisions.map(d=>`<span class="tag tag-amber" style="margin:1px 3px 1px 0;">${escapeHtml(d)}</span>`).join('') : '<span class="helper-text">—</span>'}</td>
         <td class="row-actions">
           <button class="icon-btn" onclick="openSectionDivisionsModal('${s.key}')">Divisions</button>
+          ${s.custom ? `
+          <button class="icon-btn" onclick="openEditCustomSectionModal('${s.key}')">Modifier</button>
+          <button class="icon-btn danger" onclick="deleteCustomSection('${s.key}')">Suppr.</button>` : `
           <button class="icon-btn" onclick="openSectionCustomizeModal('${s.key}')">Personnaliser</button>
-          ${isCustomized ? `<button class="icon-btn" onclick="resetSectionCustomization('${s.key}')">Par défaut</button>` : ''}
+          ${isCustomized ? `<button class="icon-btn" onclick="resetSectionCustomization('${s.key}')">Par défaut</button>` : ''}`}
         </td>
       </tr>`;
   }).join('');
@@ -5909,8 +5945,91 @@ function renderSettingsSectionsTab(){
         <thead><tr><th>Groupe</th><th>Section</th><th>Accès (grade)</th><th>Accès (divisions)</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <button class="btn" style="margin-top:12px;" onclick="openCreateCustomSectionModal()">+ Créer une section</button>
     </div>
   `;
+}
+function renderCustomSection(key){
+  const cs = (DB.settings.customSections||[]).find(x => x.key === key);
+  if(!cs) return `<div class="empty-state">Section introuvable.</div>`;
+  return `
+    <div class="page-head">
+      <div><div class="page-title">${escapeHtml(cs.icon||'📌')} ${escapeHtml(cs.name)}</div><div class="page-sub">${escapeHtml((cs.group||'').toUpperCase())}</div></div>
+      ${isAdmin() ? `<button class="btn" onclick="openEditCustomSectionModal('${cs.key}')">Modifier</button>` : ''}
+    </div>
+    <div class="settings-section" style="max-width:900px;">
+      <div style="white-space:pre-line;font-size:13.5px;color:var(--text-dim);line-height:1.7;">${cs.content ? escapeHtml(cs.content) : '<span style="color:var(--text-faint);font-style:italic;">Aucun contenu renseigné.</span>'}</div>
+    </div>
+  `;
+}
+function openCreateCustomSectionModal(){
+  if(!isAdmin()) return;
+  const existingGroups = [...new Set(SECTION_REGISTRY.map(s=>s.group).concat((DB.settings.customSections||[]).map(cs=>cs.group)))];
+  showModal({
+    title: 'Nouvelle section personnalisée',
+    fields: [
+      { key:'name', label:'Nom de la section', placeholder:'Ex. Protocoles internes' },
+      { key:'icon', label:'Icône (emoji)', placeholder:'📌' },
+      { key:'group', label:'Groupe', placeholder:'Ex. Dossier (existant) ou un nouveau nom',
+        helper: 'Groupes existants : ' + existingGroups.join(', ') },
+      { key:'content', label:'Contenu', type:'textarea' },
+    ],
+    initial: { icon:'📌' },
+    submitLabel: 'Créer',
+    onSubmit: async (data) => {
+      const name = (data.name||'').trim();
+      const group = (data.group||'').trim();
+      if(!name || !group){ await infoDialog('Le nom et le groupe sont requis.'); return; }
+      DB.settings.customSections = DB.settings.customSections || [];
+      const key = uid('custom');
+      DB.settings.customSections.push({ key, name, icon: (data.icon||'').trim() || '📌', group, content: data.content||'' });
+      await saveKey('settings');
+      await logAction('Création section', `"${name}" (groupe : ${group})`);
+      updateNavVisibility();
+      render();
+    }
+  });
+}
+function openEditCustomSectionModal(key){
+  if(!isAdmin()) return;
+  const cs = (DB.settings.customSections||[]).find(x => x.key === key);
+  if(!cs) return;
+  const existingGroups = [...new Set(SECTION_REGISTRY.map(s=>s.group).concat((DB.settings.customSections||[]).map(c=>c.group)))];
+  showModal({
+    title: 'Modifier — ' + cs.name,
+    fields: [
+      { key:'name', label:'Nom de la section' },
+      { key:'icon', label:'Icône (emoji)' },
+      { key:'group', label:'Groupe', helper: 'Groupes existants : ' + existingGroups.join(', ') },
+      { key:'content', label:'Contenu', type:'textarea' },
+    ],
+    initial: { name: cs.name, icon: cs.icon, group: cs.group, content: cs.content },
+    submitLabel: 'Enregistrer',
+    onSubmit: async (data) => {
+      const name = (data.name||'').trim();
+      const group = (data.group||'').trim();
+      if(!name || !group){ await infoDialog('Le nom et le groupe sont requis.'); return; }
+      cs.name = name; cs.icon = (data.icon||'').trim() || '📌'; cs.group = group; cs.content = data.content||'';
+      await saveKey('settings');
+      await logAction('Modification section', `"${name}"`);
+      updateNavVisibility();
+      render();
+    }
+  });
+}
+async function deleteCustomSection(key){
+  if(!isAdmin()) return;
+  const cs = (DB.settings.customSections||[]).find(x => x.key === key);
+  if(!cs) return;
+  const ok = await confirmDialog(`Supprimer la section "${cs.name}" ? Cette action est irréversible.`);
+  if(!ok) return;
+  DB.settings.customSections = (DB.settings.customSections||[]).filter(x => x.key !== key);
+  if(DB.settings.sectionAccess) delete DB.settings.sectionAccess[key];
+  await saveKey('settings');
+  await logAction('Suppression section', `"${cs.name}" supprimée`);
+  if(currentPage === key) currentPage = 'dashboard';
+  updateNavVisibility();
+  render();
 }
 
 async function moveRank(rank, dir){

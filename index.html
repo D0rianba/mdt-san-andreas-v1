@@ -654,22 +654,22 @@
         <div class="nav-item" id="nav-item-roster" data-page="roster" onclick="goPage('roster')"><span class="nav-icon">👮</span> <span class="nav-label">Effectifs</span> <span class="nav-count" id="count-roster">0</span></div>
         <div class="nav-section-label" id="nav-section-detective">Detective</div>
         <div class="nav-item" id="nav-item-detectiveReports" data-page="detectiveReports" onclick="goPage('detectiveReports')"><span class="nav-icon">⚑</span> <span class="nav-label">Rapports</span></div>
-        <div class="nav-item" id="nav-item-planning_detective" data-page="planning_detective" onclick="goPage('planning_detective')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_detective" data-page="planning_detective" onclick="goPage('planning_detective')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_detective">0</span></div>
         <div class="nav-section-label" id="nav-section-asu">A.S.U.</div>
         <div class="nav-item" id="nav-item-divrep_asu" data-page="divrep_asu" onclick="goPage('divrep_asu')"><span class="nav-icon">🚁</span> <span class="nav-label">Rapports A.S.U.</span></div>
-        <div class="nav-item" id="nav-item-planning_asu" data-page="planning_asu" onclick="goPage('planning_asu')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_asu" data-page="planning_asu" onclick="goPage('planning_asu')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_asu">0</span></div>
         <div class="nav-section-label" id="nav-section-k9">K-9</div>
         <div class="nav-item" id="nav-item-divrep_k9" data-page="divrep_k9" onclick="goPage('divrep_k9')"><span class="nav-icon">🐕</span> <span class="nav-label">Rapports K-9</span></div>
-        <div class="nav-item" id="nav-item-planning_k9" data-page="planning_k9" onclick="goPage('planning_k9')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_k9" data-page="planning_k9" onclick="goPage('planning_k9')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_k9">0</span></div>
         <div class="nav-section-label" id="nav-section-academy">Academy</div>
         <div class="nav-item" id="nav-item-divrep_pa" data-page="divrep_pa" onclick="goPage('divrep_pa')"><span class="nav-icon">🎓</span> <span class="nav-label">Rapports P.A.</span></div>
-        <div class="nav-item" id="nav-item-planning_pa" data-page="planning_pa" onclick="goPage('planning_pa')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_pa" data-page="planning_pa" onclick="goPage('planning_pa')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_pa">0</span></div>
         <div class="nav-section-label" id="nav-section-td">Trafic Division</div>
         <div class="nav-item" id="nav-item-divrep_td" data-page="divrep_td" onclick="goPage('divrep_td')"><span class="nav-icon">🚦</span> <span class="nav-label">Rapports T.D.</span></div>
-        <div class="nav-item" id="nav-item-planning_td" data-page="planning_td" onclick="goPage('planning_td')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_td" data-page="planning_td" onclick="goPage('planning_td')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_td">0</span></div>
         <div class="nav-section-label" id="nav-section-swat">S.W.A.T.</div>
         <div class="nav-item" id="nav-item-divrep_swat" data-page="divrep_swat" onclick="goPage('divrep_swat')"><span class="nav-icon">🛡</span> <span class="nav-label">Rapports S.W.A.T.</span></div>
-        <div class="nav-item" id="nav-item-planning_swat" data-page="planning_swat" onclick="goPage('planning_swat')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span></div>
+        <div class="nav-item" id="nav-item-planning_swat" data-page="planning_swat" onclick="goPage('planning_swat')"><span class="nav-icon">📅</span> <span class="nav-label">Planning</span> <span class="nav-count" id="count-planning_swat">0</span></div>
         <div class="nav-section-label" id="nav-section-logs">Logs</div>
         <div class="nav-item" id="nav-item-logs" data-page="logs" onclick="goPage('logs')"><span class="nav-icon">🗂️</span> <span class="nav-label">Logs</span></div>
         <div id="custom-nav-region"></div>
@@ -1587,25 +1587,35 @@ function goPage(page){
 function updateCounts(){
   document.getElementById('count-warrants').textContent = DB.warrants.length;
   document.getElementById('count-roster').textContent = DB.officers.length;
-  document.getElementById('count-events').textContent = countRelevantEvents();
+  refreshEventCountBadges();
 }
-// Compte les évènements "pertinents" pour le badge du menu : à venir, ou en cours depuis moins
+// Compte les évènements "pertinents" pour un badge du menu : à venir, ou en cours depuis moins
 // d'1h (un évènement est considéré "en cours" pendant 1h après son heure de début, faute de durée
-// renseignée). Les évènements passés depuis plus d'1h ne sont pas comptés.
-function countRelevantEvents(){
+// renseignée). Les évènements passés depuis plus d'1h ne sont pas comptés. divisionFilter
+// (optionnel) limite le calcul aux évènements de cette division, pour les badges "Planning".
+function countRelevantEvents(divisionFilter){
   const now = Date.now();
   const oneHourMs = 60*60*1000;
   return DB.events.filter(e => {
     if(!e.date) return false;
+    if(divisionFilter && e.division !== divisionFilter) return false;
     const dt = new Date(e.date + 'T' + (e.time || '00:00') + ':00');
     if(isNaN(dt.getTime())) return false;
     return (dt.getTime() - now) >= -oneHourMs; // à venir, ou démarré il y a moins d'1h
   }).length;
 }
-setInterval(() => {
-  const el = document.getElementById('count-events');
-  if(el) el.textContent = countRelevantEvents();
-}, 60000); // le statut "en cours" dépend de l'heure : on rafraîchit le badge toutes les minutes
+// Met à jour le badge "Évènements" (tous confondus) et celui de chaque page "Planning" (filtré
+// sur sa division). Appelée à la connexion, après toute création/modification d'évènement, et
+// toutes les minutes puisque le statut "en cours" dépend uniquement de l'heure.
+function refreshEventCountBadges(){
+  const eventsEl = document.getElementById('count-events');
+  if(eventsEl) eventsEl.textContent = countRelevantEvents();
+  Object.keys(DIVISION_PLANNING_SECTIONS).forEach(key => {
+    const el = document.getElementById('count-'+key);
+    if(el) el.textContent = countRelevantEvents(DIVISION_PLANNING_SECTIONS[key]);
+  });
+}
+setInterval(refreshEventCountBadges, 60000); // le statut "en cours" dépend de l'heure : rafraîchi toutes les minutes
 
 /* ===================== CLOCK ===================== */
 function tickClock(){
@@ -2649,6 +2659,7 @@ function openEventModal(dateKey, id, presetDivision){
       await saveKey('events');
       await logAction(existing ? 'Modification évènement' : 'Création évènement', `${data.title} — ${data.date}`);
       calendarMonth = new Date(new Date(data.date+'T00:00:00').getFullYear(), new Date(data.date+'T00:00:00').getMonth(), 1);
+      refreshEventCountBadges();
       render();
     }
   });
@@ -6633,6 +6644,7 @@ async function deleteEntity(collection, id){
     return;
   }
   await logAction('Suppression', `${COLLECTION_LABELS[collection] || collection} — ID ${id}`);
+  if(collection === 'events') refreshEventCountBadges();
   render();
 }
 

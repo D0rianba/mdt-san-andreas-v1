@@ -340,9 +340,7 @@
   tbody tr:hover{background:rgba(255,255,255,0.015);}
   .mono{font-family:var(--font-mono);color:var(--text);}
   .row-name{color:var(--text);font-weight:500;white-space:nowrap;}
-  .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap;}
-  .table-scroll{overflow-x:auto;border-radius:var(--radius);}
-  .table-scroll table{border-radius:0;}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
   .icon-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius);padding:5px 9px;font-size:11px;cursor:pointer;font-family:var(--font-mono);}
   .icon-btn:hover{border-color:var(--text-dim);color:var(--text);}
   .icon-btn.danger:hover{border-color:var(--red);color:var(--red);}
@@ -6775,7 +6773,6 @@ function renderSettingsGradesTab(){
     <div class="settings-section">
       <div class="settings-section-title">Grades du service</div>
       <div class="settings-section-sub">Ordre, renommage, logo, ajout et suppression des grades. La position dans la liste détermine la hiérarchie utilisée pour les droits d'accès (grade le plus élevé en haut).</div>
-      <div class="table-scroll">
       <table>
         <thead><tr>
           <th style="width:36px;"></th>
@@ -6783,11 +6780,10 @@ function renderSettingsGradesTab(){
           <th>Grade</th>
           <th style="width:110px;">Effectif</th>
           <th style="width:120px;text-align:right;">Taux horaire</th>
-          <th style="width:1%;"></th>
+          <th></th>
         </tr></thead>
         <tbody>${rankRows}</tbody>
       </table>
-      </div>
       <button class="btn" style="margin-top:12px;" onclick="openAddRankModal()">+ Ajouter un grade</button>
     </div>
 

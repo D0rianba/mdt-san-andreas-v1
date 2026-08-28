@@ -1658,7 +1658,8 @@ function countRelevantEvents(divisionFilter){
   const oneHourMs = 60*60*1000;
   return DB.events.filter(e => {
     if(!e.date) return false;
-    if(divisionFilter && e.division !== divisionFilter) return false;
+    if(divisionFilter){ if(e.division !== divisionFilter) return false; }
+    else if(!isEventVisibleToCurrentOfficer(e)) return false;
     const dt = new Date(e.date + 'T' + (e.time || '00:00') + ':00');
     if(isNaN(dt.getTime())) return false;
     return (dt.getTime() - now) >= -oneHourMs; // à venir, ou démarré il y a moins d'1h
@@ -2620,12 +2621,23 @@ function changeCalendarMonth(delta){
   calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth()+delta, 1);
   render();
 }
+// Un évènement lié à une division n'est visible, dans le calendrier général "Évènements" (Terminal),
+// que par les membres de cette division (et les administrateurs, pour la supervision) — les
+// évènements "Général" (sans division) restent visibles par tout le monde. Le Planning d'une
+// division n'est pas concerné : son accès est déjà réservé aux membres de la division en amont
+// (Gestion Section), donc les évènements qu'il affiche leur sont de toute façon destinés.
+function isEventVisibleToCurrentOfficer(e){
+  if(!e.division) return true;
+  if(isAdmin()) return true;
+  const officer = currentOfficer();
+  return !!(officer && Array.isArray(officer.divisions) && officer.divisions.includes(e.division));
+}
 function eventsOnDate(dateKey, divisionFilter){
-  return DB.events.filter(e => e.date === dateKey && (!divisionFilter || e.division === divisionFilter)).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+  return DB.events.filter(e => e.date === dateKey && (divisionFilter ? e.division === divisionFilter : isEventVisibleToCurrentOfficer(e))).sort((a,b) => (a.time||'').localeCompare(b.time||''));
 }
 // divisionFilter (optionnel) : limite le calendrier aux évènements de cette division (pages
-// "Planning"). La page "Évènements" du Terminal (sans filtre) continue d'afficher tous les
-// évènements, y compris ceux liés à une division — Planning n'en est qu'une vue focalisée.
+// "Planning"). Sans filtre (page "Évènements" du Terminal), les évènements liés à une division ne
+// sont visibles que par les membres de cette division (et les admins) — voir eventsOnDate.
 function renderEvents(divisionFilter, pageTitle, pageSub){
   const year = calendarMonth.getFullYear();
   const month = calendarMonth.getMonth();
